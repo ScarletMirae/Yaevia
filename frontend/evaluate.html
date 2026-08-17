@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Evaluasi model KNN — Accuracy, Precision, Recall, F1 Score, Confusion Matrix." />
+  <title>Evaluasi Model — Verifikasi Tulisan Tangan HOG+KNN</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="page-wrapper">
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <a href="index.html" class="navbar-brand">
+        <img src="images/icons/logo.png" alt="Yaevia" class="brand-logo-img">
+        <span>Yaevia</span>
+      </a>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Menu">
+        <i data-lucide="menu"></i>
+      </button>
+      <ul class="navbar-nav" id="navbar-nav">
+        <li><a href="index.html"   class="nav-link"><img src="images/icons/dashboard.png" alt="" class="nav-icon-img"> Dashboard</a></li>
+        <li><a href="upload.html"  class="nav-link"><img src="images/icons/upload.png" alt="" class="nav-icon-img"> Upload &amp; Training</a></li>
+        <li><a href="verify.html"  class="nav-link"><img src="images/icons/verifikasi.png" alt="" class="nav-icon-img"> Verifikasi</a></li>
+        <li><a href="history.html" class="nav-link"><img src="images/icons/riwayat.png" alt="" class="nav-icon-img"> Riwayat</a></li>
+        <li><a href="evaluate.html" class="nav-link active"><img src="images/icons/evaluasi.png" alt="" class="nav-icon-img"> Evaluasi</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main-content">
+    <div class="container">
+
+      <!-- PAGE HEADER -->
+      <div class="page-header animate-fade-up">
+        <h1>
+          <div class="page-icon"><img src="images/icons/evaluasi.png" alt="" class="page-icon-img"></div>
+          Evaluasi Model KNN
+        </h1>
+        <div class="wavy-line"></div>
+        <p>Metrik evaluasi model: Accuracy, Precision, Recall, F1 Score, distribusi dataset, dan Confusion Matrix.</p>
+      </div>
+
+      <div id="no-model-alert"></div>
+
+      <!-- METRICS CARDS -->
+      <section id="metrics-section" style="display:none;">
+
+        <!-- 4 Metric Chips -->
+        <div class="stat-row animate-fade-up delay-1" id="metrics-chips">
+          <div class="stat-chip">
+            <div class="stat-chip-icon"><i data-lucide="target"></i></div>
+            <div class="stat-chip-value" id="val-accuracy">—</div>
+            <div class="stat-chip-label">Accuracy</div>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-chip-icon"><i data-lucide="crosshair"></i></div>
+            <div class="stat-chip-value" id="val-precision">—</div>
+            <div class="stat-chip-label">Precision (Macro)</div>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-chip-icon"><i data-lucide="zap"></i></div>
+            <div class="stat-chip-value" id="val-recall">—</div>
+            <div class="stat-chip-label">Recall (Macro)</div>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-chip-icon"><i data-lucide="award"></i></div>
+            <div class="stat-chip-value" id="val-f1">—</div>
+            <div class="stat-chip-label">F1 Score (Macro)</div>
+          </div>
+        </div>
+
+        <!-- Model Info + Split Stats -->
+        <div class="grid-2 animate-fade-up delay-2" style="margin-bottom:1.5rem;">
+
+          <!-- Model Parameters -->
+          <div class="card">
+            <div class="card-title">
+              <i data-lucide="settings"></i>
+              Parameter Model Aktif
+            </div>
+            <div id="model-params-content" style="font-size:0.86rem;"></div>
+          </div>
+
+          <!-- Dataset Split -->
+          <div class="card">
+            <div class="card-title">
+              <i data-lucide="pie-chart"></i>
+              Pembagian Dataset (80:20)
+            </div>
+            <div id="split-content" style="font-size:0.86rem;"></div>
+          </div>
+        </div>
+
+        <!-- CHARTS ROW -->
+        <div class="grid-2 animate-fade-up delay-3" style="margin-bottom:1.5rem;">
+
+          <!-- Chart 1: Data Training vs Testing per Kelas -->
+          <div class="card">
+            <div class="card-title">
+              <i data-lucide="bar-chart-2"></i>
+              Jumlah Data Training vs Testing per Mahasiswa
+            </div>
+            <div style="position:relative;height:360px;">
+              <canvas id="chart-train-test"></canvas>
+            </div>
+          </div>
+
+          <!-- Chart 2: Distribusi Sampel per Mahasiswa -->
+          <div class="card">
+            <div class="card-title">
+              <i data-lucide="users"></i>
+              Distribusi Jumlah Sampel per Mahasiswa
+            </div>
+            <div style="position:relative;height:360px;">
+              <canvas id="chart-samples"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Confusion Matrix -->
+        <div class="card animate-fade-up" id="cm-card" style="margin-bottom:1.5rem; display:none;">
+          <div class="card-title">
+            <i data-lucide="grid"></i>
+            Confusion Matrix
+          </div>
+          <p style="font-size:0.82rem;color:var(--text-soft);margin-bottom:1rem;">
+            Baris = kelas aktual, Kolom = kelas prediksi. Diagonal utama (biru) = prediksi benar.
+          </p>
+          <div id="cm-table-wrap" style="overflow:auto;max-height:500px;"></div>
+        </div>
+
+        <!-- Per-Class Table -->
+        <div class="card animate-fade-up">
+          <div class="card-title">
+            <i data-lucide="list"></i>
+            Detail Dataset per Mahasiswa
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th><i data-lucide="user" style="width:12px;height:12px;vertical-align:-2px;"></i> Mahasiswa</th>
+                  <th><i data-lucide="database" style="width:12px;height:12px;vertical-align:-2px;"></i> Total Sampel</th>
+                  <th><i data-lucide="book-open" style="width:12px;height:12px;vertical-align:-2px;"></i> Data Training (80%)</th>
+                  <th><i data-lucide="flask-conical" style="width:12px;height:12px;vertical-align:-2px;"></i> Data Testing (20%)</th>
+                </tr>
+              </thead>
+              <tbody id="per-class-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </section>
+
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>Sistem Verifikasi Keaslian Tulisan Tangan &mdash; <span>HOG + KNN</span> &mdash; Skripsi Pendidikan Teknik Informatika &copy; 2024</p>
+  </footer>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+<script src="js/main.js"></script>
+<script src="js/evaluate.js"></script>
+</body>
+</html>

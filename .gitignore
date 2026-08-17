@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual Environment
+venv/
+env/
+.venv/
+
+# Database (local dev only)
+backend/database.db
+
+# Model saved files (large binaries)
+backend/model/saved/*.pkl
+backend/model/saved/*.joblib
+backend/model/saved/metadata.json
+
+# Dataset images (user uploads)
+backend/dataset/raw/*
+backend/dataset/processed/*
+!backend/dataset/raw/.gitkeep
+!backend/dataset/processed/.gitkeep
+
+# Evaluation results
+backend/tests/evaluation_results/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temp
+*.tmp
+*.log

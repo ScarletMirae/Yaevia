@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Verifikasi keaslian tulisan tangan mahasiswa pada laporan praktikum menggunakan KNN dan HOG." />
+  <title>Verifikasi — Verifikasi Tulisan Tangan HOG+KNN</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div class="page-wrapper">
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <a href="index.html" class="navbar-brand">
+        <img src="images/icons/logo.png" alt="Yaevia" class="brand-logo-img">
+        <span>Yaevia</span>
+      </a>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Menu">
+        <i data-lucide="menu"></i>
+      </button>
+      <ul class="navbar-nav" id="navbar-nav">
+        <li><a href="index.html"   class="nav-link"><img src="images/icons/dashboard.png" alt="" class="nav-icon-img"> Dashboard</a></li>
+        <li><a href="upload.html"  class="nav-link"><img src="images/icons/upload.png" alt="" class="nav-icon-img"> Upload &amp; Training</a></li>
+        <li><a href="verify.html"  class="nav-link active"><img src="images/icons/verifikasi.png" alt="" class="nav-icon-img"> Verifikasi</a></li>
+        <li><a href="history.html" class="nav-link"><img src="images/icons/riwayat.png" alt="" class="nav-icon-img"> Riwayat</a></li>
+        <li><a href="evaluate.html" class="nav-link"><img src="images/icons/evaluasi.png" alt="" class="nav-icon-img"> Evaluasi</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main-content">
+    <div class="container">
+
+      <!-- PAGE HEADER -->
+      <div class="page-header animate-fade-up">
+        <h1>
+          <div class="page-icon"><img src="images/icons/verifikasi.png" alt="" class="page-icon-img"></div>
+          Verifikasi Tulisan Tangan
+        </h1>
+        <div class="wavy-line"></div>
+        <p>Upload citra tulisan tangan yang ingin diverifikasi. Sistem akan mengidentifikasi penulis dan menghitung skor kemiripan menggunakan KNN.</p>
+      </div>
+
+      <!-- MAIN GRID -->
+      <div class="grid-2 animate-fade-up delay-1" style="align-items:start; margin-bottom:2rem;">
+
+        <!-- ===== UPLOAD PANEL ===== -->
+        <div class="card">
+          <div class="card-title">
+            <i data-lucide="image-plus"></i>
+            Upload Citra untuk Diverifikasi
+          </div>
+
+          <!-- Drop Zone -->
+          <div class="drop-zone" id="drop-zone" role="button" tabindex="0" aria-label="Area upload gambar verifikasi">
+            <input type="file" id="file-input" accept=".jpg,.jpeg,.png,.bmp,.tiff" />
+            <div class="drop-zone-icon"><i data-lucide="image"></i></div>
+            <div class="drop-zone-text"><strong>Klik atau seret gambar ke sini</strong></div>
+            <div class="drop-zone-hint">JPG, PNG, BMP, TIFF &mdash; Maks. 16 MB</div>
+          </div>
+
+          <!-- Image Preview -->
+          <div id="preview-container" style="margin-top:1rem;display:none;text-align:center;">
+            <div class="img-preview-wrap" style="display:inline-block;">
+              <img id="preview-img" src="" alt="Preview gambar yang akan diverifikasi"
+                   style="max-height:220px;max-width:100%;display:block;" />
+              <button class="img-preview-remove" id="remove-preview" onclick="removePreview()" title="Hapus gambar">
+                <i data-lucide="x" style="width:12px;height:12px;"></i>
+              </button>
+            </div>
+            <p id="preview-filename" style="font-size:0.78rem;color:var(--text-muted);margin-top:0.5rem;"></p>
+          </div>
+
+          <!-- Verify Button -->
+          <button class="btn btn-primary btn-block btn-lg" id="verify-btn"
+                  style="margin-top:1.5rem;" onclick="doVerify()" disabled>
+            <i data-lucide="search"></i>
+            <span id="verify-btn-text">Verifikasi Sekarang</span>
+          </button>
+
+          <!-- Tips -->
+          <div class="alert alert-info" style="margin-top:1.1rem;font-size:0.81rem;">
+            <i data-lucide="lightbulb"></i>
+            <span><strong>Tips:</strong> Pastikan gambar tulisan tangan jelas, tidak terpotong, dan memiliki kontras yang baik antara tinta dan latar belakang.</span>
+          </div>
+        </div>
+
+        <!-- ===== RESULT PANEL ===== -->
+        <!-- Placeholder -->
+        <div id="result-placeholder" class="card" style="text-align:center;padding:3.5rem 2rem;">
+          <div style="width:72px;height:72px;margin:0 auto 1.2rem;background:linear-gradient(135deg,var(--soft),var(--pink));border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-gold);">
+            <i data-lucide="scan-search" style="width:30px;height:30px;color:var(--text);stroke-width:1.5;"></i>
+          </div>
+          <h3 style="color:var(--text-muted);margin-bottom:0.5rem;">Hasil Verifikasi</h3>
+          <p style="font-size:0.84rem;color:var(--text-muted);">Upload gambar tulisan tangan dan klik "Verifikasi Sekarang" untuk melihat hasil identifikasi.</p>
+        </div>
+
+        <!-- Result Card (hidden until verified) -->
+        <div id="result-panel" style="display:none;">
+          <div class="result-card" id="result-card">
+
+            <!-- Status Badge -->
+            <div id="result-badge" class="result-status-badge">
+              <i data-lucide="loader-2" class="spin-icon"></i>
+              Memproses...
+            </div>
+
+            <!-- Predicted Name -->
+            <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:0.15rem;margin-top:0.5rem;">Teridentifikasi sebagai:</p>
+            <div class="result-name" id="result-name">—</div>
+
+            <!-- Similarity Score -->
+            <div style="margin:1.5rem 0 1rem;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+                <span style="font-size:0.8rem;color:var(--text-soft);display:flex;align-items:center;gap:0.4rem;">
+                  <i data-lucide="star" style="width:13px;height:13px;color:var(--gold);"></i>
+                  Skor Kemiripan
+                </span>
+                <span class="result-score" id="result-score-text">0%</span>
+              </div>
+              <div class="similarity-bar-wrap">
+                <div class="similarity-bar" id="result-bar"></div>
+              </div>
+            </div>
+
+            <!-- Top Candidates -->
+            <div style="margin-top:1.25rem;text-align:left;">
+              <p style="font-size:0.75rem;font-weight:700;color:var(--purple);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:0.65rem;display:flex;align-items:center;gap:0.35rem;">
+                <i data-lucide="list-ordered" style="width:13px;height:13px;"></i>
+                Top Kandidat
+              </p>
+              <div id="top-matches-list"></div>
+            </div>
+
+            <!-- Extra Meta Info (Euclidean Distance, Analysis Time, etc.) -->
+            <div id="result-meta-info" style="margin-top:0.75rem;"></div>
+
+            <!-- Actions -->
+            <div style="margin-top:1.5rem;display:flex;gap:0.65rem;justify-content:center;flex-wrap:wrap;">
+              <button class="btn btn-secondary btn-sm" onclick="resetVerify()">
+                <i data-lucide="refresh-cw"></i> Verifikasi Baru
+              </button>
+              <a href="history.html" class="btn btn-outline btn-sm">
+                <i data-lucide="clipboard-list"></i> Lihat Riwayat
+              </a>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- PROCESS STEPS -->
+      <div class="card animate-fade-up delay-2">
+        <div class="card-title">
+          <i data-lucide="workflow"></i>
+          Tahapan Proses Verifikasi
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:0.85rem;margin-top:0.5rem;">
+
+          <div id="step-upload" class="process-step">
+            <div class="process-step-icon"><i data-lucide="camera"></i></div>
+            <div class="process-step-title">1. Upload</div>
+            <div class="process-step-desc">Citra diterima server Flask</div>
+          </div>
+
+          <div id="step-preprocess" class="process-step">
+            <div class="process-step-icon"><i data-lucide="sliders"></i></div>
+            <div class="process-step-title">2. Preprocessing</div>
+            <div class="process-step-desc">Grayscale → Otsu → Noise removal</div>
+          </div>
+
+          <div id="step-hog" class="process-step">
+            <div class="process-step-icon"><i data-lucide="bar-chart-2"></i></div>
+            <div class="process-step-title">3. Ekstraksi HOG</div>
+            <div class="process-step-desc">Histogram of Oriented Gradients</div>
+          </div>
+
+          <div id="step-knn" class="process-step">
+            <div class="process-step-icon"><i data-lucide="git-merge"></i></div>
+            <div class="process-step-title">4. Klasifikasi KNN</div>
+            <div class="process-step-desc">K-Nearest Neighbor, Euclidean distance</div>
+          </div>
+
+          <div id="step-result" class="process-step">
+            <div class="process-step-icon"><i data-lucide="shield-check"></i></div>
+            <div class="process-step-title">5. Hasil</div>
+            <div class="process-step-desc">Identitas + skor kemiripan ditampilkan</div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>Sistem Verifikasi Keaslian Tulisan Tangan &mdash; <span>HOG + KNN</span> &mdash; Skripsi Pendidikan Teknik Informatika &copy; 2024</p>
+  </footer>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<style>
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin-icon { animation: spin 1s linear infinite; }
+  /* Similarity status badges */
+  .badge-verified  { background:linear-gradient(135deg,#d4f5e9,#c3f0d8); color:#1a5c3a; border-color:rgba(76,175,80,0.3); }
+  .badge-mirip     { background:linear-gradient(135deg,#fff3cd,#ffeaa0); color:#7A5500; border-color:rgba(255,193,7,0.4); }
+  .badge-uncertain { background:linear-gradient(135deg,#ffe5cc,#ffd4a0); color:#7A3A00; border-color:rgba(255,152,0,0.35); }
+  .badge-unverified{ background:linear-gradient(135deg,#ffe5e5,#ffd0d0); color:#7A2E45; border-color:rgba(244,67,54,0.25); }
+  .badge-red    { background:rgba(244,67,54,0.12); color:#c0392b; border:1.5px solid rgba(244,67,54,0.3); padding:3px 8px; border-radius:999px; font-size:0.72rem; font-weight:700; display:inline-flex; align-items:center; gap:3px; }
+  .badge-green  { background:rgba(76,175,80,0.12); color:#1a5c3a; border:1.5px solid rgba(76,175,80,0.3); padding:3px 8px; border-radius:999px; font-size:0.72rem; font-weight:700; display:inline-flex; align-items:center; gap:3px; }
+</style>
+
+
+<script src="js/main.js"></script>
+<script src="js/verify.js"></script>
+</body>
+</html>

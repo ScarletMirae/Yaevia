@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Sistem Verifikasi Keaslian Tulisan Tangan pada Laporan Praktikum menggunakan HOG + KNN. Skripsi Pendidikan Teknik Informatika." />
+  <title>Dashboard — Verifikasi Tulisan Tangan HOG+KNN</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div id="sakura-container"></div>
+<div class="page-wrapper">
+
+  <!-- ===== NAVBAR ===== -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <a href="index.html" class="navbar-brand">
+        <img src="images/icons/logo.png" alt="Yaevia" class="brand-logo-img">
+        <span>Yaevia</span>
+      </a>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Menu">
+        <i data-lucide="menu"></i>
+      </button>
+      <ul class="navbar-nav" id="navbar-nav">
+        <li><a href="index.html"   class="nav-link active"><img src="images/icons/dashboard.png" alt="" class="nav-icon-img"> Dashboard</a></li>
+        <li><a href="upload.html"  class="nav-link"><img src="images/icons/upload.png" alt="" class="nav-icon-img"> Upload &amp; Training</a></li>
+        <li><a href="verify.html"  class="nav-link"><img src="images/icons/verifikasi.png" alt="" class="nav-icon-img"> Verifikasi</a></li>
+        <li><a href="history.html" class="nav-link"><img src="images/icons/riwayat.png" alt="" class="nav-icon-img"> Riwayat</a></li>
+        <li><a href="evaluate.html" class="nav-link"><img src="images/icons/evaluasi.png" alt="" class="nav-icon-img"> Evaluasi</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ===== MAIN ===== -->
+  <main class="main-content">
+    <div class="container">
+
+      <!-- HERO SECTION -->
+      <section class="hero">
+        <div class="hero-orb hero-orb-1"></div>
+        <div class="hero-orb hero-orb-2"></div>
+
+        <div class="hero-badge">
+          <i data-lucide="sparkles"></i>
+          Sistem Otomatis Berbasis Pengolahan Citra Digital
+        </div>
+
+        <h1 class="hero-title">
+          <span class="gradient-text">Handwriting Verification</span><br>System
+        </h1>
+
+        <div class="hero-methods">
+          <div class="hero-pill">
+            <i data-lucide="bar-chart-2"></i>
+            Histogram of Oriented Gradients (HOG)
+          </div>
+          <span class="hero-plus">+</span>
+          <div class="hero-pill">
+            <i data-lucide="git-merge"></i>
+            K-Nearest Neighbor (KNN)
+          </div>
+        </div>
+
+        <p class="hero-subtitle">
+          Verifikasi keaslian tulisan tangan mahasiswa pada laporan praktikum secara otomatis, objektif, dan akurat.
+        </p>
+
+        <!-- Server Status -->
+        <div id="server-status" style="margin-top:1.5rem; display:inline-flex; align-items:center; gap:0.5rem; padding:0.45rem 1.1rem; border-radius:999px; background:var(--soft); font-size:0.8rem; color:var(--text-soft); animation: fadeInUp 0.6s 0.4s both;">
+          <span class="spinner" style="width:13px;height:13px;border-width:2px;"></span>
+          Memeriksa koneksi server...
+        </div>
+      </section>
+
+      <!-- STAT CARDS -->
+      <section class="stat-row animate-fade-up delay-1">
+        <div class="stat-chip">
+          <div class="stat-chip-icon"><i data-lucide="image"></i></div>
+          <div class="stat-chip-value" id="stat-total">—</div>
+          <div class="stat-chip-label">Total Citra</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip-icon"><i data-lucide="users"></i></div>
+          <div class="stat-chip-value" id="stat-students">—</div>
+          <div class="stat-chip-label">Mahasiswa</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip-icon"><i data-lucide="check-circle-2"></i></div>
+          <div class="stat-chip-value" id="stat-verifications">—</div>
+          <div class="stat-chip-label">Verifikasi</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip-icon"><i data-lucide="target"></i></div>
+          <div class="stat-chip-value" id="stat-accuracy">—</div>
+          <div class="stat-chip-label">Akurasi Model</div>
+        </div>
+      </section>
+
+      <!-- MODEL STATUS -->
+      <div class="card animate-fade-up delay-2" style="margin-bottom:1.5rem;">
+        <div class="card-title">
+          <i data-lucide="brain"></i>
+          Status Model Terlatih
+        </div>
+        <div id="model-status-content">
+          <div style="display:flex;align-items:center;gap:0.75rem;color:var(--text-muted);font-size:0.88rem;">
+            <span class="spinner"></span> Memuat status model...
+          </div>
+        </div>
+      </div>
+
+      <!-- NAVIGATION CARDS -->
+      <section class="animate-fade-up delay-3" style="margin-bottom:2rem;">
+        <h2 style="margin-bottom:1.25rem;font-size:1.05rem;display:flex;align-items:center;gap:0.5rem;">
+          <i data-lucide="zap" style="width:18px;height:18px;color:var(--gold);"></i>
+          Menu Utama
+        </h2>
+        <div class="grid-3">
+
+          <a href="upload.html" class="card nav-card">
+            <div class="nav-card-icon">
+              <img src="images/icons/upload.png" alt="Upload" class="nav-card-icon-img">
+            </div>
+            <h3>Upload &amp; Training</h3>
+            <p style="font-size:0.82rem;">Upload citra tulisan tangan mahasiswa dan latih model KNN baru.</p>
+          </a>
+
+          <a href="verify.html" class="card nav-card">
+            <div class="nav-card-icon">
+              <img src="images/icons/verifikasi.png" alt="Verifikasi" class="nav-card-icon-img">
+            </div>
+            <h3>Verifikasi</h3>
+            <p style="font-size:0.82rem;">Upload citra baru dan lihat hasil klasifikasi beserta skor kemiripan.</p>
+          </a>
+
+          <a href="history.html" class="card nav-card">
+            <div class="nav-card-icon">
+              <img src="images/icons/riwayat.png" alt="Riwayat" class="nav-card-icon-img">
+            </div>
+            <h3>Riwayat</h3>
+            <p style="font-size:0.82rem;">Lihat semua riwayat verifikasi dan export laporan CSV.</p>
+          </a>
+
+        </div>
+      </section>
+
+      <!-- PIPELINE & CONFIG in 2 columns -->
+      <div class="grid-2 animate-fade-up" style="margin-bottom:0;">
+
+        <!-- Alur Sistem -->
+        <div class="card">
+          <div class="card-title">
+            <i data-lucide="workflow"></i>
+            Alur Sistem
+          </div>
+          <div style="display:flex;flex-direction:column;gap:0.5rem;margin-top:0.25rem;">
+            <div class="pipeline-row">
+              <div class="pipeline-dot"><i data-lucide="camera"></i></div>
+              <div class="pipeline-label-wrap">
+                <span class="pipeline-title">Upload Citra</span>
+                <span class="pipeline-desc">Scan / foto laporan praktikum</span>
+              </div>
+            </div>
+            <div class="pipeline-connector"></div>
+            <div class="pipeline-row">
+              <div class="pipeline-dot"><i data-lucide="sliders"></i></div>
+              <div class="pipeline-label-wrap">
+                <span class="pipeline-title">Preprocessing</span>
+                <span class="pipeline-desc">Grayscale → Otsu → ROI</span>
+              </div>
+            </div>
+            <div class="pipeline-connector"></div>
+            <div class="pipeline-row">
+              <div class="pipeline-dot"><i data-lucide="bar-chart-2"></i></div>
+              <div class="pipeline-label-wrap">
+                <span class="pipeline-title">Ekstraksi HOG</span>
+                <span class="pipeline-desc">8.100 dimensi feature vector</span>
+              </div>
+            </div>
+            <div class="pipeline-connector"></div>
+            <div class="pipeline-row">
+              <div class="pipeline-dot"><i data-lucide="git-merge"></i></div>
+              <div class="pipeline-label-wrap">
+                <span class="pipeline-title">Klasifikasi KNN</span>
+                <span class="pipeline-desc">Euclidean distance, K neighbors</span>
+              </div>
+            </div>
+            <div class="pipeline-connector"></div>
+            <div class="pipeline-row">
+              <div class="pipeline-dot" style="background:linear-gradient(135deg,var(--pink),var(--gold));"><i data-lucide="shield-check"></i></div>
+              <div class="pipeline-label-wrap">
+                <span class="pipeline-title">Hasil Verifikasi</span>
+                <span class="pipeline-desc">Identitas + skor kemiripan</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Parameter Aktif -->
+        <div class="card">
+          <div class="card-title">
+            <i data-lucide="settings"></i>
+            Parameter Sistem Aktif
+          </div>
+          <div style="margin-bottom:1rem;">
+            <p style="font-size:0.72rem;font-weight:700;color:var(--purple);letter-spacing:0.07em;margin-bottom:0.5rem;text-transform:uppercase;">HOG Parameters</p>
+            <div id="hog-params" style="font-size:0.87rem;"><span class="spinner" style="width:14px;height:14px;border-width:2px;"></span></div>
+          </div>
+          <div>
+            <p style="font-size:0.72rem;font-weight:700;color:var(--purple);letter-spacing:0.07em;margin-bottom:0.5rem;text-transform:uppercase;">KNN Parameters</p>
+            <div id="knn-params" style="font-size:0.87rem;"><span class="spinner" style="width:14px;height:14px;border-width:2px;"></span></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- MODEL INFORMATION CARD -->
+      <div class="card animate-fade-up" style="margin-top:1.5rem;" id="model-info-card">
+        <div class="card-title">
+          <i data-lucide="info"></i>
+          📊 Model Information
+        </div>
+        <div id="model-info-content">
+          <div style="display:flex;align-items:center;gap:0.7rem;color:var(--text-muted);font-size:0.88rem;">
+            <span class="spinner"></span> Memuat informasi model...
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>Sistem Verifikasi Keaslian Tulisan Tangan &mdash; <span>HOG + KNN</span> &mdash; Skripsi Pendidikan Teknik Informatika &copy; 2024</p>
+  </footer>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<style>
+  .pipeline-row {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+  }
+  .pipeline-dot {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--soft), var(--pink));
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(247,198,217,0.4);
+    transition: all var(--t-base) var(--spring);
+  }
+  .pipeline-dot:hover { transform: scale(1.1); box-shadow: var(--shadow-gold); }
+  .pipeline-dot i { width: 16px; height: 16px; color: var(--text); }
+  .pipeline-connector {
+    width: 2px; height: 14px; margin-left: 17px;
+    background: linear-gradient(to bottom, var(--pink), var(--gold-light));
+    border-radius: 2px;
+    opacity: 0.6;
+  }
+  .pipeline-label-wrap { display: flex; flex-direction: column; gap: 1px; }
+  .pipeline-title { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+  .pipeline-desc  { font-size: 0.73rem; color: var(--text-muted); }
+
+  .param-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--cream-alt);
+    gap: 0.5rem;
+  }
+  .param-row:last-child { border-bottom: none; }
+  .param-key   { color: var(--text-muted); font-size: 0.83rem; }
+  .param-value { font-weight: 700; color: var(--text); font-size: 0.87rem; background: var(--soft); padding: 2px 8px; border-radius: 999px; }
+</style>
+
+<script src="js/main.js"></script>
+<script>
+  const API = API_BASE;
+
+  // ─── Server Status ────────────────────────────────────────
+  async function checkServer() {
+    const el = document.getElementById("server-status");
+    if (!el) return;
+    try {
+      const res = await fetch(API + "/api/health");
+      const d   = await res.json();
+      if (d.status === "ok") {
+        el.innerHTML = `<span style="color:#1a6b4a;font-size:0.85rem;">●</span>&nbsp;Server aktif &mdash; Sistem siap digunakan`;
+        el.style.background = "#d4f5e9"; el.style.color = "#1a5c3a";
+      }
+    } catch {
+      el.innerHTML = `<span style="color:#880e4f;font-size:0.85rem;">●</span>&nbsp;Server offline &mdash; jalankan <code>python app.py</code>`;
+      el.style.background = "#fce4ec"; el.style.color = "#880e4f";
+    }
+  }
+
+  // ─── HOG & KNN Config Cards ───────────────────────────────
+  async function loadConfig() {
+    try {
+      const r = await fetch(API + "/api/config");
+      const c = await r.json();
+      const hog = c.hog || {}, knn = c.knn || {};
+      const hogEl = document.getElementById("hog-params");
+      const knnEl = document.getElementById("knn-params");
+      if (hogEl) hogEl.innerHTML = `
+        <div class="param-row"><span class="param-key">Orientations</span><span class="param-value">${hog.orientations ?? '—'}</span></div>
+        <div class="param-row"><span class="param-key">Pixels per Cell</span><span class="param-value">${Array.isArray(hog.pixels_per_cell) ? hog.pixels_per_cell.join('×') : (hog.pixels_per_cell ?? '—')}</span></div>
+        <div class="param-row"><span class="param-key">Cells per Block</span><span class="param-value">${Array.isArray(hog.cells_per_block) ? hog.cells_per_block.join('×') : (hog.cells_per_block ?? '—')}</span></div>`;
+      if (knnEl) knnEl.innerHTML = `
+        <div class="param-row"><span class="param-key">Nilai K</span><span class="param-value">${knn.n_neighbors ?? '—'}</span></div>
+        <div class="param-row"><span class="param-key">Metric</span><span class="param-value">${knn.metric ?? '—'}</span></div>
+        <div class="param-row"><span class="param-key">Weights</span><span class="param-value">${knn.weights ?? '—'}</span></div>`;
+      if (window.lucide) lucide.createIcons();
+    } catch {
+      const hogEl = document.getElementById("hog-params");
+      const knnEl = document.getElementById("knn-params");
+      if (hogEl) hogEl.textContent = "Server offline";
+      if (knnEl) knnEl.textContent = "Server offline";
+    }
+  }
+
+  // ─── Status Model Terlatih ────────────────────────────────
+  async function loadModelStatus() {
+    const el = document.getElementById("model-status-content");
+    if (!el) return;
+    try {
+      const r = await fetch(API + "/api/model/info");
+      const d = await r.json();
+
+      if (!d.success || !d.data) {
+        el.innerHTML = `<div class="alert alert-info">
+          <i data-lucide="info"></i>
+          <span>Belum ada model terlatih. <a href="upload.html" style="font-weight:700;color:var(--text);">Upload dataset &amp; mulai training →</a></span>
+        </div>`;
+        if (window.lucide) lucide.createIcons({ nodes: [el] });
+        return;
+      }
+
+      const m   = d.data;
+      const acc = m.test_accuracy != null ? parseFloat(m.test_accuracy).toFixed(2) : '—';
+
+      el.innerHTML = `
+        <div style="display:flex;flex-wrap:wrap;gap:1rem;align-items:center;">
+          <span class="badge badge-green" style="font-size:0.78rem;"><i data-lucide="check-circle-2"></i>&nbsp;Model Aktif</span>
+          <div style="font-size:0.87rem;">
+            <span style="color:var(--text-muted);">Akurasi Uji:</span>
+            <strong style="font-size:1.15rem;color:var(--text);margin-left:4px;">${acc}%</strong>
+          </div>
+          <div style="font-size:0.87rem;color:var(--text-soft);">
+            <span style="color:var(--text-muted);">Data Latih:</span> <strong style="color:var(--text);">${m.n_train_samples ?? '—'}</strong>
+          </div>
+          <div style="font-size:0.87rem;color:var(--text-soft);">
+            <span style="color:var(--text-muted);">Kelas:</span> <strong style="color:var(--text);">${m.n_respondents ?? '—'}</strong>
+          </div>
+          <div style="font-size:0.87rem;color:var(--text-soft);">
+            <span style="color:var(--text-muted);">Dilatih:</span>
+            <strong style="color:var(--text);">${m.train_timestamp ? new Date(m.train_timestamp).toLocaleString('id-ID') : '—'}</strong>
+          </div>
+        </div>`;
+
+      const accEl = document.getElementById("stat-accuracy");
+      if (accEl) accEl.textContent = acc !== '—' ? acc + "%" : "—";
+      if (window.lucide) lucide.createIcons({ nodes: [el] });
+    } catch {
+      if (el) el.innerHTML = `<span style="color:var(--text-muted);font-size:0.88rem;">Tidak dapat terhubung ke server.</span>`;
+    }
+  }
+
+  // ─── Stats Counter Cards ──────────────────────────────────
+  async function loadStats() {
+    try {
+      const [s1, s2] = await Promise.all([
+        fetch(API + "/api/dataset/stats").then(r => r.json()),
+        fetch(API + "/api/verify/history?limit=1").then(r => r.json()),
+      ]);
+      const totalEl  = document.getElementById("stat-total");
+      const studEl   = document.getElementById("stat-students");
+      const verifEl  = document.getElementById("stat-verifications");
+      if (totalEl)  totalEl.textContent  = s1.total ?? "0";
+      if (studEl)   studEl.textContent   = s1.classes_count ?? "0";
+      if (verifEl)  verifEl.textContent  = s2.total ?? "0";
+    } catch {}
+  }
+
+  // ─── Model Information Card ───────────────────────────────
+  async function loadModelInfo() {
+    const el = document.getElementById("model-info-content");
+    if (!el) return;
+    try {
+      const r = await fetch(API + "/api/model/info");
+      const d = await r.json();
+      if (!d.success || !d.data) {
+        el.innerHTML = `<div class="alert alert-info"><i data-lucide="info"></i><span>Belum ada model terlatih. <a href="upload.html" style="font-weight:700;color:var(--text);">Mulai training →</a></span></div>`;
+        if (window.lucide) lucide.createIcons({ nodes: [el] });
+        return;
+      }
+      const m   = d.data;
+      const ppc = Array.isArray(m.hog_pixels_per_cell) ? m.hog_pixels_per_cell.join('×') : m.hog_pixels_per_cell;
+      const cpb = Array.isArray(m.hog_cells_per_block) ? m.hog_cells_per_block.join('×') : m.hog_cells_per_block;
+      const acc = m.test_accuracy != null ? parseFloat(m.test_accuracy).toFixed(2) : '0.00';
+      el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:0.65rem;">
+        ${infoChip('Responden',       m.n_respondents,                                         'users')}
+        ${infoChip('Total Dataset',   m.n_total_dataset,                                       'database')}
+        ${infoChip('Data Training',   m.n_train_samples,                                       'book-open')}
+        ${infoChip('Data Testing',    m.n_test_samples,                                        'flask-conical')}
+        ${infoChip('Accuracy',        acc + '%',                                               'target')}
+        ${infoChip('Precision',       parseFloat(m.precision_macro||0).toFixed(2) + '%',       'crosshair')}
+        ${infoChip('Recall',          parseFloat(m.recall_macro||0).toFixed(2) + '%',          'zap')}
+        ${infoChip('F1 Score',        parseFloat(m.f1_macro||0).toFixed(2) + '%',              'award')}
+        ${infoChip('Feature Vector',  (m.feature_vector_size||0).toLocaleString() + ' dim',    'bar-chart-2')}
+        ${infoChip('Nilai K',         m.knn_k,                                                 'git-merge')}
+        ${infoChip('Metric Jarak',    m.knn_metric || 'euclidean',                             'ruler')}
+        ${infoChip('HOG Orientations',m.hog_orientations,                                      'layers')}
+        ${infoChip('Pixels/Cell',     ppc,                                                     'grid')}
+        ${infoChip('Cells/Block',     cpb,                                                     'layout-grid')}
+        ${infoChip('Training Time',   parseFloat(m.training_time_seconds||0).toFixed(2) + 's', 'clock')}
+      </div>
+      <p style="font-size:0.73rem;color:var(--text-muted);margin-top:0.75rem;display:flex;align-items:center;gap:0.3rem;">
+        <i data-lucide="clock" style="width:11px;height:11px;"></i>
+        Terlatih: ${m.train_timestamp ? new Date(m.train_timestamp).toLocaleString('id-ID') : '—'}
+      </p>`;
+      if (window.lucide) lucide.createIcons({ nodes: [el] });
+    } catch {
+      if (el) el.innerHTML = '<span style="color:var(--text-muted);font-size:0.86rem;">Tidak dapat memuat informasi model.</span>';
+    }
+  }
+
+  function infoChip(label, val, icon) {
+    return `<div style="background:var(--white);border:1.5px solid rgba(200,155,110,0.18);border-radius:var(--radius-sm);padding:0.65rem 0.85rem;display:flex;align-items:center;gap:0.55rem;">
+      <div style="width:28px;height:28px;background:var(--soft);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <i data-lucide="${icon}" style="width:13px;height:13px;color:var(--rose-gold);"></i>
+      </div>
+      <div>
+        <div style="font-size:0.67rem;color:var(--text-muted);font-weight:600;">${label}</div>
+        <div style="font-size:0.9rem;font-weight:800;color:var(--text);">${val ?? '—'}</div>
+      </div>
+    </div>`;
+  }
+
+  // ─── INIT — Jalankan semua setelah DOM siap ───────────────
+  document.addEventListener("DOMContentLoaded", () => {
+    checkServer();
+    loadConfig();
+    loadModelStatus();
+    loadStats();
+    loadModelInfo();
+  });
+</script>
+
+</body>
+</html>

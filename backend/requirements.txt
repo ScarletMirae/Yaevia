@@ -1,0 +1,36 @@
+# requirements.txt — Sistem Verifikasi Keaslian Tulisan Tangan
+# =============================================================
+# Install semua dependency dengan:
+#   pip install -r requirements.txt
+#
+# Direkomendasikan menggunakan virtual environment:
+#   python -m venv venv
+#   venv\Scripts\activate       # Windows
+#   pip install -r requirements.txt
+
+# --- Web Framework ---
+flask==3.0.3
+flask-cors==4.0.1
+
+# --- Image Processing ---
+opencv-python==4.9.0.80
+Pillow==10.3.0
+
+# --- HOG Feature Extraction ---
+scikit-image==0.23.2
+
+# --- Machine Learning (KNN) ---
+scikit-learn==1.4.2
+
+# --- Numerical Computing ---
+numpy==1.26.4
+
+# --- Model Persistence ---
+joblib==1.4.2
+
+# --- Visualization (confusion matrix, plots) ---
+matplotlib==3.8.4
+seaborn==0.13.2
+
+# --- Utilities ---
+python-dotenv==1.0.1

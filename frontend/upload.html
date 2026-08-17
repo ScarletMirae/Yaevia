@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Upload dataset tulisan tangan mahasiswa dan latih model KNN." />
+  <title>Upload & Training — Verifikasi Tulisan Tangan HOG+KNN</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+<div class="page-wrapper">
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <a href="index.html" class="navbar-brand">
+        <img src="images/icons/logo.png" alt="Yaevia" class="brand-logo-img">
+        <span>Yaevia</span>
+      </a>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Menu">
+        <i data-lucide="menu"></i>
+      </button>
+      <ul class="navbar-nav" id="navbar-nav">
+        <li><a href="index.html"   class="nav-link"><img src="images/icons/dashboard.png" alt="" class="nav-icon-img"> Dashboard</a></li>
+        <li><a href="upload.html"  class="nav-link active"><img src="images/icons/upload.png" alt="" class="nav-icon-img"> Upload &amp; Training</a></li>
+        <li><a href="verify.html"  class="nav-link"><img src="images/icons/verifikasi.png" alt="" class="nav-icon-img"> Verifikasi</a></li>
+        <li><a href="history.html" class="nav-link"><img src="images/icons/riwayat.png" alt="" class="nav-icon-img"> Riwayat</a></li>
+        <li><a href="evaluate.html" class="nav-link"><img src="images/icons/evaluasi.png" alt="" class="nav-icon-img"> Evaluasi</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main-content">
+    <div class="container">
+
+      <!-- PAGE HEADER -->
+      <div class="page-header animate-fade-up">
+        <h1>
+          <div class="page-icon"><img src="images/icons/upload.png" alt="" class="page-icon-img"></div>
+          Upload Dataset &amp; Training
+        </h1>
+        <div class="wavy-line"></div>
+        <p>Upload citra tulisan tangan mahasiswa, kelola dataset, dan latih model KNN baru.</p>
+      </div>
+
+      <div id="alert-container"></div>
+
+      <!-- TOP ROW: Upload Form + Sidebar -->
+      <div class="grid-2 animate-fade-up delay-1" style="align-items:start; margin-bottom:2rem;">
+
+        <!-- ===== UPLOAD FORM ===== -->
+        <div class="card">
+          <div class="card-title">
+            <i data-lucide="image-plus"></i>
+            Upload Citra Tulisan Tangan
+          </div>
+
+          <form id="upload-form" novalidate>
+
+            <!-- Drop Zone -->
+            <div class="drop-zone" id="drop-zone" role="button" tabindex="0" aria-label="Area upload gambar">
+              <input type="file" id="file-input" accept=".jpg,.jpeg,.png,.bmp,.tiff" multiple />
+              <div class="drop-zone-icon"><i data-lucide="image"></i></div>
+              <div class="drop-zone-text"><strong>Klik atau seret gambar ke sini</strong></div>
+              <div class="drop-zone-hint">JPG, PNG, BMP, TIFF &mdash; Maks. 16 MB per file</div>
+            </div>
+
+            <!-- File Queue -->
+            <div id="file-queue" style="margin-top:0.75rem; display:none;">
+              <p style="font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:0.5rem;display:flex;align-items:center;gap:0.35rem;">
+                <i data-lucide="files" style="width:14px;height:14px;"></i> File dipilih:
+              </p>
+              <div id="file-queue-list"></div>
+            </div>
+
+            <!-- Form Fields -->
+            <div style="margin-top:1.25rem;">
+              <div class="form-group">
+                <label class="form-label" for="student-name">
+                  <i data-lucide="user" style="width:13px;height:13px;vertical-align:-2px;"></i>
+                  Nama Mahasiswa <span class="required">*</span>
+                </label>
+                <input type="text" class="form-control" id="student-name" name="student_name"
+                       placeholder="Contoh: Ahmad Zulkifli" autocomplete="name" required />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="student-id">
+                  <i data-lucide="id-card" style="width:13px;height:13px;vertical-align:-2px;"></i>
+                  NIM Mahasiswa
+                </label>
+                <input type="text" class="form-control" id="student-id" name="student_id"
+                       placeholder="Contoh: 20210001" />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="mata-kuliah">
+                  <i data-lucide="book-open" style="width:13px;height:13px;vertical-align:-2px;"></i>
+                  Mata Kuliah <span class="required">*</span>
+                </label>
+                <select class="form-control" id="mata-kuliah" name="mata_kuliah" required>
+                  <option value="">— Pilih Mata Kuliah —</option>
+                  <option value="Algoritma Pemrograman (Alpro)">Algoritma Pemrograman (Alpro)</option>
+                  <option value="Pemrograman Berorientasi Objek (PBO)">Pemrograman Berorientasi Objek (PBO)</option>
+                  <option value="Sistem Operasi">Sistem Operasi</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="notes">
+                  <i data-lucide="pencil-line" style="width:13px;height:13px;vertical-align:-2px;"></i>
+                  Catatan (opsional)
+                </label>
+                <input type="text" class="form-control" id="notes" name="notes"
+                       placeholder="Misal: Pertemuan 3, minggu ke-5" />
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block btn-lg" id="upload-btn">
+              <i data-lucide="upload-cloud"></i>
+              <span id="upload-btn-text">Upload Citra</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- ===== RIGHT COLUMN ===== -->
+        <div style="display:flex;flex-direction:column;gap:1.5rem;">
+
+          <!-- Dataset Stats -->
+          <div class="card animate-fade-up delay-2">
+            <div class="card-title">
+              <i data-lucide="database"></i>
+              Status Dataset
+            </div>
+            <div id="dataset-stats-content">
+              <div style="display:flex;align-items:center;gap:0.7rem;color:var(--text-muted);font-size:0.88rem;">
+                <span class="spinner"></span> Memuat statistik...
+              </div>
+            </div>
+          </div>
+
+          <!-- Training Panel -->
+          <div class="card animate-fade-up delay-3">
+            <div class="card-title">
+              <i data-lucide="brain"></i>
+              Training Model KNN
+            </div>
+
+            <!-- Parameter Tuning -->
+            <details id="param-details" style="margin-bottom:1rem;">
+              <summary style="font-size:0.84rem;font-weight:600;color:var(--text-soft);cursor:pointer;padding:0.4rem 0;display:flex;align-items:center;gap:0.4rem;list-style:none;">
+                <i data-lucide="settings-2" style="width:14px;height:14px;color:var(--gold);"></i>
+                Atur Parameter (Eksperimen Skripsi)
+              </summary>
+              <div style="padding:0.75rem 0 0.25rem;display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+                <div class="form-group" style="margin:0;">
+                  <label class="form-label" for="param-k" style="font-size:0.78rem;">
+                    <i data-lucide="git-merge" style="width:12px;height:12px;vertical-align:-1px;"></i>
+                    Nilai K (KNN)
+                  </label>
+                  <input type="number" class="form-control" id="param-k" value="5" min="1" max="20" style="font-size:0.85rem;" />
+                </div>
+                <div class="form-group" style="margin:0;">
+                  <label class="form-label" for="param-metric" style="font-size:0.78rem;">
+                    <i data-lucide="ruler" style="width:12px;height:12px;vertical-align:-1px;"></i>
+                    Metric Jarak
+                  </label>
+                  <select class="form-control" id="param-metric" style="font-size:0.85rem;">
+                    <option value="euclidean" selected>Euclidean</option>
+                    <option value="manhattan">Manhattan</option>
+                    <option value="minkowski">Minkowski</option>
+                  </select>
+                </div>
+                <div class="form-group" style="margin:0;">
+                  <label class="form-label" for="param-orient" style="font-size:0.78rem;">
+                    <i data-lucide="bar-chart-2" style="width:12px;height:12px;vertical-align:-1px;"></i>
+                    HOG Orientations
+                  </label>
+                  <input type="number" class="form-control" id="param-orient" value="9" min="4" max="18" style="font-size:0.85rem;" />
+                </div>
+                <div class="form-group" style="margin:0;">
+                  <label class="form-label" for="param-ppc" style="font-size:0.78rem;">
+                    <i data-lucide="grid" style="width:12px;height:12px;vertical-align:-1px;"></i>
+                    Pixels per Cell
+                  </label>
+                  <select class="form-control" id="param-ppc" style="font-size:0.85rem;">
+                    <option value="4">4 × 4</option>
+                    <option value="8" selected>8 × 8</option>
+                    <option value="16">16 × 16</option>
+                  </select>
+                </div>
+              </div>
+            </details>
+
+            <!-- Training Steps Animation -->
+            <div id="training-steps-wrap" style="display:none; margin-bottom:1.25rem;">
+              <div class="training-steps" id="training-steps">
+                <div class="training-step" id="step-0" data-label="Menyiapkan Dataset" data-sub="Memuat citra dari database...">
+                  <div class="step-indicator">1</div>
+                  <div style="flex:1;">
+                    <div class="step-text">Menyiapkan Dataset</div>
+                    <div class="step-sub">Memuat citra dari database...</div>
+                  </div>
+                  <div class="step-spinner"><span class="spinner" style="width:16px;height:16px;border-width:2.5px;"></span></div>
+                </div>
+                <div class="training-step" id="step-1" data-label="Mengekstraksi Fitur HOG" data-sub="Histogram of Oriented Gradients...">
+                  <div class="step-indicator">2</div>
+                  <div style="flex:1;">
+                    <div class="step-text">Mengekstraksi Fitur HOG</div>
+                    <div class="step-sub">Histogram of Oriented Gradients...</div>
+                  </div>
+                  <div class="step-spinner"><span class="spinner" style="width:16px;height:16px;border-width:2.5px;"></span></div>
+                </div>
+                <div class="training-step" id="step-2" data-label="Membagi Dataset" data-sub="80% Training / 20% Testing...">
+                  <div class="step-indicator">3</div>
+                  <div style="flex:1;">
+                    <div class="step-text">Membagi Dataset</div>
+                    <div class="step-sub">80% Training / 20% Testing...</div>
+                  </div>
+                  <div class="step-spinner"><span class="spinner" style="width:16px;height:16px;border-width:2.5px;"></span></div>
+                </div>
+                <div class="training-step" id="step-3" data-label="Melatih Model KNN" data-sub="K-Nearest Neighbor classification...">
+                  <div class="step-indicator">4</div>
+                  <div style="flex:1;">
+                    <div class="step-text">Melatih Model KNN</div>
+                    <div class="step-sub">K-Nearest Neighbor classification...</div>
+                  </div>
+                  <div class="step-spinner"><span class="spinner" style="width:16px;height:16px;border-width:2.5px;"></span></div>
+                </div>
+                <div class="training-step" id="step-4" data-label="Menghitung Akurasi" data-sub="Evaluasi pada data testing...">
+                  <div class="step-indicator">5</div>
+                  <div style="flex:1;">
+                    <div class="step-text">Menghitung Akurasi</div>
+                    <div class="step-sub">Evaluasi pada data testing...</div>
+                  </div>
+                  <div class="step-spinner"><span class="spinner" style="width:16px;height:16px;border-width:2.5px;"></span></div>
+                </div>
+                <div class="training-step" id="step-5" data-label="Menyimpan Model" data-sub="Serialisasi model ke file .joblib...">
+                  <div class="step-indicator">6</div>
+                  <div style="flex:1;">
+                    <div class="step-text">Menyimpan Model</div>
+                    <div class="step-sub">Serialisasi model ke file .joblib...</div>
+                  </div>
+                  <div class="step-spinner"><span class="spinner" style="width:16px;height:16px;border-width:2.5px;"></span></div>
+                </div>
+              </div>
+
+              <!-- Progress bar -->
+              <div style="margin-top:1rem;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;">
+                  <span id="train-progress-text" style="font-size:0.8rem;color:var(--text-soft);">Memulai training...</span>
+                  <span id="train-progress-pct" style="font-size:0.82rem;font-weight:700;color:var(--text);">0%</span>
+                </div>
+                <div class="progress-wrap">
+                  <div class="progress-bar" id="train-progress-bar" style="width:0%;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Train Button -->
+            <button class="btn btn-purple btn-block" id="train-btn" onclick="startTraining()">
+              <i data-lucide="zap"></i>
+              Mulai Training
+            </button>
+
+            <!-- Training Result -->
+            <div id="train-result" style="margin-top:1rem;"></div>
+          </div>
+
+          <!-- Dummy Data Generator -->
+          <div class="card animate-fade-up delay-4" style="background:linear-gradient(135deg, var(--cream), rgba(107,63,160,0.05));border-color:rgba(107,63,160,0.15);">
+            <div class="card-title" style="font-size:0.95rem;">
+              <i data-lucide="wand-2"></i>
+              Generate Data Dummy
+            </div>
+            <p style="font-size:0.82rem;color:var(--text-soft);margin-bottom:1rem;line-height:1.6;">
+              Buat <strong>150 gambar sintetis</strong> (30 mahasiswa × 5 sampel) untuk demo dan pengujian sistem.
+            </p>
+            <div class="alert alert-info" style="margin-bottom:1rem;font-size:0.8rem;">
+              <i data-lucide="terminal"></i>
+              <div>
+                Jalankan di terminal:<br>
+                <code style="background:rgba(0,0,0,0.08);padding:2px 6px;border-radius:4px;font-size:0.82rem;">python generate_dummy_data.py</code>
+              </div>
+            </div>
+            <button class="btn btn-outline btn-sm" id="dummy-btn" onclick="showDummyInfo()">
+              <i data-lucide="info"></i>
+              Lihat Instruksi
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- DATASET SUMMARY CARD -->
+      <div class="card animate-fade-up" style="margin-bottom:1.5rem;" id="dataset-summary-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">
+          <div class="card-title" style="margin:0;">
+            <i data-lucide="folder-open"></i>
+            📂 Dataset Summary
+          </div>
+        </div>
+        <!-- Stat Row -->
+        <div class="stat-row" id="ds-summary-stats" style="margin-bottom:1rem;">
+          <div class="stat-chip">
+            <div class="stat-chip-icon"><i data-lucide="users"></i></div>
+            <div class="stat-chip-value" id="ds-n-students">—</div>
+            <div class="stat-chip-label">Total Mahasiswa</div>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-chip-icon"><i data-lucide="image"></i></div>
+            <div class="stat-chip-value" id="ds-total">—</div>
+            <div class="stat-chip-label">Total Dataset</div>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-chip-icon"><i data-lucide="book-open"></i></div>
+            <div class="stat-chip-value" id="ds-train">—</div>
+            <div class="stat-chip-label">Est. Training (80%)</div>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-chip-icon"><i data-lucide="flask-conical"></i></div>
+            <div class="stat-chip-value" id="ds-test">—</div>
+            <div class="stat-chip-label">Est. Testing (20%)</div>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-chip-icon"><i data-lucide="bar-chart-2"></i></div>
+            <div class="stat-chip-value" id="ds-avg">—</div>
+            <div class="stat-chip-label">Rata-rata/Mhs</div>
+          </div>
+        </div>
+        <!-- Per-student table -->
+        <div class="table-wrap" id="ds-student-table-wrap" style="display:none;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th><i data-lucide="user" style="width:12px;height:12px;vertical-align:-2px;"></i> Mahasiswa</th>
+                <th><i data-lucide="image" style="width:12px;height:12px;vertical-align:-2px;"></i> Jumlah Sampel</th>
+                <th>Status Syarat</th>
+              </tr>
+            </thead>
+            <tbody id="ds-student-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- DATASET TABLE -->
+      <div class="card animate-fade-up">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.25rem;">
+          <div class="card-title" style="margin:0;">
+            <i data-lucide="folder-open"></i>
+            Daftar Dataset
+          </div>
+          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+            <div style="position:relative;">
+              <i data-lucide="search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--text-muted);pointer-events:none;"></i>
+              <input type="text" class="form-control" id="filter-name" placeholder="Cari nama..."
+                     style="width:170px;font-size:0.83rem;padding-left:2rem;" oninput="filterTable()" />
+            </div>
+            <select class="form-control" id="filter-mk" style="width:170px;font-size:0.83rem;" onchange="filterTable()">
+              <option value="">Semua Mata Kuliah</option>
+              <option value="Algoritma Pemrograman (Alpro)">Alpro</option>
+              <option value="Pemrograman Berorientasi Objek (PBO)">PBO</option>
+              <option value="Sistem Operasi">Sistem Operasi</option>
+            </select>
+            <button class="btn btn-danger btn-sm" onclick="deleteAllDataset()">
+              <i data-lucide="trash-2"></i> Hapus Semua
+            </button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="data-table" id="dataset-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th><i data-lucide="user" style="width:13px;height:13px;vertical-align:-2px;"></i> Nama</th>
+                <th><i data-lucide="hash" style="width:13px;height:13px;vertical-align:-2px;"></i> NIM</th>
+                <th><i data-lucide="book-open" style="width:13px;height:13px;vertical-align:-2px;"></i> Mata Kuliah</th>
+                <th><i data-lucide="file-image" style="width:13px;height:13px;vertical-align:-2px;"></i> File</th>
+                <th><i data-lucide="check-circle-2" style="width:13px;height:13px;vertical-align:-2px;"></i> Status</th>
+                <th><i data-lucide="clock" style="width:13px;height:13px;vertical-align:-2px;"></i> Waktu</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="dataset-tbody">
+              <tr><td colspan="8" style="text-align:center;padding:2.5rem;color:var(--text-muted);">
+                <span class="spinner"></span>&nbsp; Memuat data...
+              </td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>Sistem Verifikasi Keaslian Tulisan Tangan &mdash; <span>HOG + KNN</span> &mdash; Skripsi Pendidikan Teknik Informatika &copy; 2024</p>
+  </footer>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+<script src="js/main.js"></script>
+<script src="js/upload.js"></script>
+</body>
+</html>
