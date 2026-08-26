@@ -160,44 +160,27 @@ def classify_handwriting(
     # --- Step 1: Siapkan feature vector query ---
     query = np.array(query_feature).reshape(1, -1)
 
-    # --- Step 2: Prediksi kelas dengan KNN (voting mayoritas) ---
-    # KNN mencari K tetangga berdasarkan Euclidean Distance,
-    # kemudian melakukan voting untuk menentukan kelas prediksi.
+    # --- Step 2: Prediksi kelas dengan KNN (voting mayoritas K tetangga) ---
     predicted_label = knn_model.predict(query)[0]
     predicted_name  = label_encoder.inverse_transform([predicted_label])[0]
 
-    # --- Step 3: Ambil K-nearest neighbors dan jarak Euclideannya ---
-    # kneighbors() mengembalikan (distances, indices) di ruang fitur.
-    # Ini adalah Euclidean Distance nyata, bukan probabilitas.
+    # --- Step 3: Probabilitas/bobot voting KNN untuk seluruh kelas ---
+    probs = knn_model.predict_proba(query)[0]
+    prob_dict = {cls_idx: float(probs[i]) for i, cls_idx in enumerate(knn_model.classes_)}
+
+    # --- Step 4: Ambil K-nearest neighbors dan jarak Euclideannya ---
     k_distances_arr, k_indices_arr = knn_model.kneighbors(query)
-    k_distances = k_distances_arr[0]   # Array jarak ke K tetangga
-    k_indices   = k_indices_arr[0]     # Index sampel K tetangga
+    k_distances = [round(float(d), 4) for d in k_distances_arr[0]]
 
-    # --- Step 4: Euclidean Distance minimum (nearest neighbor) ---
-    # Tetangga pertama (index 0) selalu yang paling dekat
-    min_distance = float(k_distances[0])
-
-    # --- Step 5: Konversi ke Similarity Score ---
-    # Formula: similarity = (1 / (1 + distance)) * 100
-    # Euclidean Distance -> Similarity (0-100%)
-    similarity_pct = euclidean_to_similarity(min_distance)
-
-    # --- Step 6: Tentukan Status Kemiripan ---
-    status = get_similarity_status(similarity_pct)
-
-    # --- Step 7: Hitung Top-N kandidat per kelas ---
-    # Untuk setiap kelas dalam dataset training, hitung jarak minimum
-    # dari query ke sampel-sampel kelas tersebut.
-    unique_labels  = np.unique(y_train_encoded)
-    class_results  = []
+    # --- Step 5: Evaluasi jarak terbaik (minimum distance) per kelas ---
+    unique_labels = np.unique(y_train_encoded)
+    class_results = []
 
     for lbl in unique_labels:
-        # Ambil semua sampel milik kelas ini
-        class_mask     = y_train_encoded == lbl
+        class_mask     = (y_train_encoded == lbl)
         class_features = X_train[class_mask]   # shape: (n_class_samples, n_features)
 
         # Hitung Euclidean Distance dari query ke setiap sampel kelas ini
-        # diffs shape: (n_class_samples, n_features)
         diffs = class_features - query          # broadcasting
         dists = np.sqrt(np.sum(diffs ** 2, axis=1))   # Euclidean: sqrt(sum((xi-yi)^2))
 
@@ -205,25 +188,47 @@ def classify_handwriting(
         min_dist_class = float(np.min(dists))
         sim_class      = euclidean_to_similarity(min_dist_class)
         class_name     = label_encoder.inverse_transform([lbl])[0]
+        vote_weight    = prob_dict.get(lbl, 0.0)
 
         class_results.append({
-            "name":     class_name,
-            "distance": round(min_dist_class, 4),
-            "percent":  round(sim_class, 2),
+            "name":        class_name,
+            "distance":    round(min_dist_class, 4),
+            "percent":     round(sim_class, 2),
+            "vote_weight": round(vote_weight, 4),
+            "label_id":    lbl,
         })
 
-    # Urutkan dari similarity tertinggi (jarak terkecil)
-    class_results.sort(key=lambda x: x["distance"])
-    top_matches = class_results[:5]   # Ambil top-5
+    # Urutkan kandidat secara konsisten dengan mekanisme KNN:
+    # 1. Primer: Bobot voting KNN (descending) -> Pemenang voting (predicted_name) SELALU peringkat #1
+    # 2. Sekunder: Jarak minimum sampel (ascending)
+    class_results.sort(key=lambda x: (-x["vote_weight"], x["distance"]))
+    top_matches = class_results[:5]
+
+    # --- Step 6: Parameter utama dihitung langsung dari sampel milik predicted_name (Top #1) ---
+    top1 = top_matches[0]
+    predicted_distance   = float(top1["distance"])
+    predicted_similarity = float(top1["percent"])
+    status = get_similarity_status(predicted_similarity)
+
+    # Format top_matches untuk output JSON (tanpa label_id internal)
+    clean_top_matches = [
+        {
+            "name":        m["name"],
+            "distance":    m["distance"],
+            "percent":     m["percent"],
+            "vote_weight": m["vote_weight"],
+        }
+        for m in top_matches
+    ]
 
     return {
         "predicted_name":     predicted_name,
-        "euclidean_distance": round(min_distance, 4),
-        "similarity_percent": round(similarity_pct, 2),
+        "euclidean_distance": round(predicted_distance, 4),
+        "similarity_percent": round(predicted_similarity, 2),
         "similarity_status":  status,
         "k_neighbors":        int(knn_model.n_neighbors),
-        "top_matches":        top_matches,
-        "k_distances":        [round(float(d), 4) for d in k_distances],
+        "top_matches":        clean_top_matches,
+        "k_distances":        k_distances,
     }
 
 
