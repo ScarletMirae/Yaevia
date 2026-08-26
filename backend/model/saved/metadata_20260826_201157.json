@@ -100,11 +100,11 @@
   "precision_macro": 2.9412,
   "recall_macro": 2.9412,
   "f1_macro": 2.9412,
-  "training_time_seconds": 5.34,
-  "train_timestamp": "2026-08-26T20:17:28.675162",
-  "model_path": "D:\\Yaevia\\backend\\model\\saved\\knn_model_20260826_201728.joblib",
-  "le_path": "D:\\Yaevia\\backend\\model\\saved\\label_encoder_20260826_201728.joblib",
-  "train_features_path": "D:\\Yaevia\\backend\\model\\saved\\train_features_20260826_201728.joblib",
-  "test_features_path": "D:\\Yaevia\\backend\\model\\saved\\test_features_20260826_201728.joblib",
-  "timestamp": "20260826_201728"
+  "training_time_seconds": 2.969,
+  "train_timestamp": "2026-08-26T20:11:57.550356",
+  "model_path": "D:\\Yaevia\\backend\\model\\saved\\knn_model_20260826_201157.joblib",
+  "le_path": "D:\\Yaevia\\backend\\model\\saved\\label_encoder_20260826_201157.joblib",
+  "train_features_path": "D:\\Yaevia\\backend\\model\\saved\\train_features_20260826_201157.joblib",
+  "test_features_path": "D:\\Yaevia\\backend\\model\\saved\\test_features_20260826_201157.joblib",
+  "timestamp": "20260826_201157"
 }

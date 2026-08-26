@@ -187,8 +187,15 @@ def load_dataset_from_db() -> tuple:
         nim          = row["student_id"] or ""
         mk           = row["mata_kuliah"]
 
+        # Resolusi path dinamis jika path absolut lama berubah (misal folder project di-rename)
+        if not os.path.exists(file_path):
+            basename = os.path.basename(file_path)
+            candidate_path = os.path.join(DATASET_RAW_DIR, basename)
+            if os.path.exists(candidate_path):
+                file_path = candidate_path
+
         try:
-            # Preprocessing: grayscale -> thresholding -> resize ke IMAGE_SIZE
+            # Preprocessing: grayscale -> blur -> threshold -> denoise -> ROI -> letterbox 128x128
             processed = preprocess_image(file_path)
             images.append(processed)
             labels.append(student_name)

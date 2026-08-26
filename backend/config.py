@@ -61,16 +61,20 @@ TEST_SIZE    = 0.2
 RANDOM_STATE = 42
 
 # ==============================================================================
-# SIMILARITY THRESHOLDS (Berbasis Euclidean Distance)
+# SIMILARITY THRESHOLDS (Berbasis Cosine / Normalized HOG Distance)
 # BAB IV — Klasifikasi Status Kemiripan:
-#   Threshold dikalibrasi berdasarkan distribusi jarak HOG feature vector.
-#   Nilai dapat disesuaikan berdasarkan hasil eksperimen validasi.
+#   Threshold dikalibrasi berdasarkan distribusi jarak ruang fitur HOG L2-Hys (d_max ≈ 21.21).
+#   Hasil evaluasi empiris data uji:
+#     - d <= 12.55 (>= 65%) -> SANGAT MIRIP
+#     - d <= 15.00 (>= 50%) -> MIRIP
+#     - d <= 16.43 (>= 40%) -> KURANG MIRIP
+#     - d >  16.43 (<  40%) -> TIDAK MIRIP
 # ==============================================================================
 SIMILARITY_THRESHOLDS = {
-    "sangat_mirip":  70.0,   # >= 70% → SANGAT MIRIP
-    "mirip":         50.0,   # >= 50% → MIRIP
-    "kurang_mirip":  30.0,   # >= 30% → KURANG MIRIP
-    # < 30%  → TIDAK MIRIP
+    "sangat_mirip":  65.0,   # >= 65% → SANGAT MIRIP (d <= 12.55)
+    "mirip":         50.0,   # >= 50% → MIRIP (d <= 15.00)
+    "kurang_mirip":  40.0,   # >= 40% → KURANG MIRIP (d <= 16.43)
+    # < 40%  → TIDAK MIRIP
 }
 
 # Minimum sampel per mahasiswa agar bisa diikutkan training

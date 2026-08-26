@@ -72,23 +72,22 @@ def run_evaluation(save_results: bool = True) -> dict:
         print("[EVAL] ERROR: Belum ada model terlatih. Jalankan training terlebih dahulu.")
         sys.exit(1)
 
-    if not paths["test_data_path"] or not os.path.exists(paths["test_data_path"]):
+    if not paths.get("Xtest_path") or not os.path.exists(paths["Xtest_path"]):
         print("[EVAL] ERROR: File test data tidak ditemukan.")
-        print(f"       Path: {paths['test_data_path']}")
+        print(f"       Path: {paths.get('Xtest_path')}")
         sys.exit(1)
 
     print(f"[EVAL] Memuat model dari: {paths['model_path']}")
     knn = joblib.load(paths["model_path"])
 
     le = None
-    if paths["le_path"] and os.path.exists(paths["le_path"]):
+    if paths.get("le_path") and os.path.exists(paths["le_path"]):
         le = joblib.load(paths["le_path"])
 
-    # Load test data
-    test_data   = np.load(paths["test_data_path"], allow_pickle=True)
-    X_test      = test_data["X_test"]
-    y_test      = test_data["y_test"]
-    class_names = list(test_data["class_names"])
+    # Load test data dari joblib
+    X_test      = joblib.load(paths["Xtest_path"])
+    y_test      = joblib.load(paths["ytest_path"])
+    class_names = list(le.classes_) if le else [str(c) for c in np.unique(y_test)]
 
     print(f"[EVAL] Data uji: {len(X_test)} sampel, {len(class_names)} kelas")
 

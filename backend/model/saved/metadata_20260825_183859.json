@@ -1,0 +1,44 @@
+{
+  "n_respondents": 1,
+  "class_names": [
+    "Muhammad Dony Saputra"
+  ],
+  "label_counts": {
+    "Muhammad Dony Saputra": 9
+  },
+  "n_total_dataset": 9,
+  "n_train_samples": 7,
+  "n_test_samples": 2,
+  "test_size": 0.2,
+  "train_size": 0.8,
+  "hog_orientations": 9,
+  "hog_pixels_per_cell": [
+    8,
+    8
+  ],
+  "hog_cells_per_block": [
+    2,
+    2
+  ],
+  "hog_block_norm": "L2-Hys",
+  "feature_vector_size": 8100,
+  "image_size": [
+    128,
+    128
+  ],
+  "knn_k": 5,
+  "knn_metric": "euclidean",
+  "knn_weights": "distance",
+  "train_accuracy": 100.0,
+  "test_accuracy": 100.0,
+  "precision_macro": 100.0,
+  "recall_macro": 100.0,
+  "f1_macro": 100.0,
+  "training_time_seconds": 3.985,
+  "train_timestamp": "2026-08-25T18:38:59.667335",
+  "model_path": "D:\\Yaevia\\backend\\model\\saved\\knn_model_20260825_183859.joblib",
+  "le_path": "D:\\Yaevia\\backend\\model\\saved\\label_encoder_20260825_183859.joblib",
+  "train_features_path": "D:\\Yaevia\\backend\\model\\saved\\train_features_20260825_183859.joblib",
+  "test_features_path": "D:\\Yaevia\\backend\\model\\saved\\test_features_20260825_183859.joblib",
+  "timestamp": "20260825_183859"
+}

@@ -46,32 +46,40 @@ logger = logging.getLogger(__name__)
 # FUNGSI SIMILARITY BERBASIS EUCLIDEAN DISTANCE
 # ==============================================================================
 
-def euclidean_to_similarity(distance: float) -> float:
+def euclidean_to_similarity(distance: float, max_dist_sq: float = 450.0) -> float:
     """
-    BAB IV - Konversi Euclidean Distance ke Similarity Score:
+    BAB IV - Konversi Euclidean Distance ke Similarity Score (Cosine / Normalized HOG Space):
 
-    Formula yang digunakan:
-        similarity(%) = (1 / (1 + distance)) * 100
+    Dasar Metodologi:
+        Pada HOG dengan normalisasi blok L2-Hys (128x128, 8x8 pixels_per_cell, 2x2 cells_per_block),
+        vektor fitur memiliki N_blocks = 225 blok ternormalisasi L2.
+        Kuadrat panjang vektor: ||x||^2 ≈ 225.0.
 
-    Sifat formula:
-        - distance = 0      -> similarity = 100% (identik sempurna)
-        - distance = 1      -> similarity = 50%
-        - distance -> inf   -> similarity -> 0%
-        - Monoton menurun: semakin jauh, semakin tidak mirip
-        - Tidak memerlukan normalisasi jarak maksimum
+        Hubungan antara Euclidean Distance (d) dan Cosine Similarity (cos_sim) untuk vektor L2-norm:
+            d^2 = ||x||^2 + ||y||^2 - 2*(x·y) = 225 + 225 - 2*(225 * cos_sim) = 450 * (1 - cos_sim)
+            cos_sim = 1 - (d^2 / 450)
 
-    Keunggulan dibanding predict_proba():
-        - Langsung mencerminkan jarak geometris di ruang fitur HOG
-        - Interpretable: nilai 0% = tidak mirip, 100% = identik
-        - Tidak bergantung pada distribusi data training
+        Formula Similarity (%):
+            similarity(%) = max(0.0, min(100.0, (1 - (distance^2 / 450.0)) * 100))
+
+    Sifat Formula:
+        - distance = 0.00   -> similarity = 100.0% (identik sempurna)
+        - distance ≈ 11.44  -> similarity ≈ 70.9%  (sangat mirip / same writer)
+        - distance ≈ 14.27  -> similarity ≈ 54.8%  (mirip / variasi wajar satu penulis)
+        - distance >= 21.21 -> similarity = 0.0%   (ortogonal / totally dissimilar)
+        - Monoton menurun proporsional terhadap ruang fitur HOG
 
     Args:
         distance (float): Euclidean Distance antara dua feature vector HOG.
+        max_dist_sq (float): Kuadrat jarak maksimum teoritis (2 * N_blocks = 450.0).
 
     Returns:
         float: Similarity Score dalam persentase (0.0 - 100.0).
     """
-    return (1.0 / (1.0 + distance)) * 100.0
+    if distance <= 0.0:
+        return 100.0
+    sim_ratio = 1.0 - (float(distance) ** 2) / float(max_dist_sq)
+    return round(float(np.clip(sim_ratio * 100.0, 0.0, 100.0)), 2)
 
 
 def get_similarity_status(similarity_pct: float) -> str:

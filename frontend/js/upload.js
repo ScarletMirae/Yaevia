@@ -260,7 +260,7 @@ async function startTraining() {
           </div>
         </div>`;
       if (window.lucide) lucide.createIcons({ nodes: [result] });
-
+    }
   } catch {
     stepTimers.forEach(clearTimeout);
     finishAllSteps();
