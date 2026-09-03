@@ -159,10 +159,15 @@ function resetBtn() {
 }
 
 // ─────────────────────────────────────────────────────────
-// RENDER RESULT (Updated v2.0)
+// RENDER RESULT (Updated v2.1 — Dual Metrics & Explicit KNN Vote Share)
 // ─────────────────────────────────────────────────────────
 function renderResult(data) {
   const pct      = parseFloat(data.similarity_percent || 0);
+  const votePct  = parseFloat(
+    data.predicted_vote_weight ?? 
+    (data.top_matches && data.top_matches[0] && (data.top_matches[0].vote_percent ?? (data.top_matches[0].vote_weight ? data.top_matches[0].vote_weight * 100 : 0))) ?? 
+    0
+  );
   const dist     = parseFloat(data.euclidean_distance || 0);
   const status   = data.similarity_status || data.verification_status || "TIDAK MIRIP";
   const time     = parseFloat(data.analysis_time_seconds || 0);
@@ -188,34 +193,52 @@ function renderResult(data) {
   const metaEl = document.getElementById("result-meta-info");
   if (metaEl) {
     metaEl.innerHTML = `
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:0.5rem;margin-top:0.85rem;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:0.5rem;margin-top:0.85rem;">
+        ${metaChip("KNN Vote Share",     votePct.toFixed(2) + "%", "git-merge")}
+        ${metaChip("Sample Similarity",  pct.toFixed(2) + "%", "percent")}
         ${metaChip("Euclidean Distance", dist.toFixed(4), "ruler")}
-        ${metaChip("Similarity Score",   pct.toFixed(2) + "%", "percent")}
-        ${metaChip("Nilai K",            kVal, "git-merge")}
+        ${metaChip("Nilai K",            kVal, "users")}
         ${metaChip("Feature Vector",     featLen.toLocaleString() + " dim", "bar-chart-2")}
         ${metaChip("Waktu Analisis",     time.toFixed(3) + " detik", "clock")}
       </div>`;
     if (window.lucide) lucide.createIcons({ nodes: [metaEl] });
   }
 
-  // --- Top matches (with Euclidean Distance) ---
+  // --- Top matches (with Explicit KNN Vote Share & Sample Similarity) ---
   const matches = data.top_matches || [];
   document.getElementById("top-matches-list").innerHTML = matches.map((m, i) => {
-    const isTop  = i === 0;
-    const pctVal = typeof m.percent === "number" ? m.percent.toFixed(1) : "—";
-    const dVal   = typeof m.distance === "number" ? m.distance.toFixed(4) : "—";
+    const isTop   = i === 0;
+    const simVal  = typeof m.percent === "number" ? m.percent.toFixed(1) : "—";
+    const dVal    = typeof m.distance === "number" ? m.distance.toFixed(4) : "—";
+    const vVal    = typeof m.vote_percent === "number" 
+                    ? m.vote_percent.toFixed(1) 
+                    : (typeof m.vote_weight === "number" ? (m.vote_weight * 100).toFixed(1) : "0.0");
+    
     return `
-    <div style="display:flex;align-items:center;gap:0.75rem;padding:0.55rem 0.8rem;
-         background:${isTop ? "linear-gradient(135deg,var(--soft),var(--cream))" : "transparent"};
-         border-radius:var(--radius-sm);margin-bottom:0.35rem;
-         border:1px solid ${isTop ? "var(--pink)" : "transparent"};
+    <div style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0.85rem;
+         background:${isTop ? "linear-gradient(135deg,rgba(242,167,195,0.18),rgba(255,248,240,0.9))" : "var(--white)"};
+         border-radius:var(--radius-sm);margin-bottom:0.45rem;
+         border:1.5px solid ${isTop ? "var(--pink)" : "rgba(200,155,110,0.15)"};
+         box-shadow:${isTop ? "0 2px 8px rgba(184,80,110,0.08)" : "none"};
          transition:all var(--t-fast);">
-      <span style="font-size:0.78rem;font-weight:800;color:var(--text-muted);min-width:20px;text-align:center;">${i + 1}</span>
-      <i data-lucide="${isTop ? "user-check" : "user"}" style="width:14px;height:14px;color:${isTop ? "var(--rose-gold)" : "var(--text-muted)"};flex-shrink:0;"></i>
-      <span style="flex:1;font-weight:${isTop ? "700" : "500"};color:var(--text);font-size:0.87rem;">${m.name}</span>
-      <div style="text-align:right;">
-        <div style="font-weight:800;color:${isTop ? "var(--text)" : "var(--text-muted)"};font-size:${isTop ? "0.95rem" : "0.85rem"};">${pctVal}%</div>
-        <div style="font-size:0.68rem;color:var(--text-muted);">d=${dVal}</div>
+      <span style="font-size:0.8rem;font-weight:800;color:${isTop ? "var(--rose-gold)" : "var(--text-muted)"};min-width:20px;text-align:center;">${i + 1}</span>
+      <div style="width:28px;height:28px;border-radius:50%;background:${isTop ? "var(--soft)" : "rgba(240,230,220,0.4)"};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <i data-lucide="${isTop ? "user-check" : "user"}" style="width:14px;height:14px;color:${isTop ? "var(--rose-gold)" : "var(--text-muted)"};"></i>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:${isTop ? "800" : "600"};color:var(--text);font-size:0.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          ${m.name}
+        </div>
+        <div style="display:flex;align-items:center;gap:0.4rem;margin-top:0.2rem;flex-wrap:wrap;">
+          <span style="font-size:0.7rem;font-weight:700;color:var(--purple);background:rgba(107,63,160,0.08);padding:0.1rem 0.4rem;border-radius:4px;display:inline-flex;align-items:center;gap:0.25rem;">
+            <i data-lucide="git-merge" style="width:10px;height:10px;"></i> KNN Vote: ${vVal}%
+          </span>
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-size:0.65rem;color:var(--text-muted);font-weight:600;letter-spacing:0.02em;">Kemiripan Sampel</div>
+        <div style="font-weight:800;color:${isTop ? "var(--text)" : "var(--text-muted)"};font-size:0.92rem;">${simVal}%</div>
+        <div style="font-size:0.68rem;color:var(--text-muted);font-family:monospace;">d=${dVal}</div>
       </div>
     </div>`;
   }).join("");

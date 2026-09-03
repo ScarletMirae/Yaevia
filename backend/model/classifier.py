@@ -1,29 +1,35 @@
 """
-model/classifier.py — Klasifikasi KNN Berbasis Euclidean Distance
-==================================================================
+model/classifier.py — Klasifikasi KNN Berbasis Euclidean Distance & HOG
+========================================================================
 Modul ini mengimplementasikan proses verifikasi tulisan tangan menggunakan
-K-Nearest Neighbor dengan similarity score berbasis Euclidean Distance.
+K-Nearest Neighbor (KNN, K=5, distance-weighted) dan pengukuran kemiripan
+sampel geometris berbasis Euclidean Distance pada ruang fitur HOG.
 
 BAB IV — Implementasi Verifikasi:
     Proses verifikasi dilakukan dengan langkah berikut:
-    1. Feature vector HOG dikirim ke modul ini
-    2. Model KNN memanggil kneighbors() untuk mendapatkan jarak Euclidean
-       ke K tetangga terdekat di ruang fitur
-    3. Kelas diprediksi berdasarkan voting mayoritas K tetangga
-    4. Euclidean Distance minimum (ke tetangga pertama) dikonversi ke
-       Similarity Score menggunakan formula: similarity = 1/(1+distance) * 100
+    1. Feature vector HOG diterima dari modul ekstraksi fitur
+    2. Model KNN menghitung tetangga terdekat menggunakan kneighbors() dan
+       menentukan kelas prediksi via distance-weighted majority voting (K=5).
+    3. Bobot voting (Vote Share) dihitung melalui predict_proba() sebagai
+       proporsi kontribusi bobot (w = 1/d) pada lingkungan K=5.
+    4. Jarak Euclidean minimum (d_min) ke sampel terdekat dari kelas pemenang
+       dikonversi ke Sample Similarity (%) menggunakan formula Cosine/Normalized HOG:
+       similarity(%) = max(0.0, min(100.0, (1 - (d^2 / 450)) * 100))
     5. Status kemiripan ditentukan berdasarkan threshold di config.py
+    6. Daftar Top Kandidat diurutkan berdasarkan konsensus voting KNN (primer:
+       vote_weight desc, sekunder: distance asc).
 
 CATATAN METODOLOGI:
-    Similarity score TIDAK menggunakan predict_proba() dari sklearn
-    karena nilai probabilitas voting KNN tidak merepresentasikan
-    tingkat kemiripan feature vector secara geometris.
-    Euclidean Distance memberikan ukuran jarak yang langsung bermakna
-    di ruang fitur HOG (ruang Euclidean berdimensi tinggi).
+    - KNN Weighted Vote Share: Menunjukkan proporsi konsensus voting KNN (K=5).
+    - Sample Similarity: Menunjukkan kedekatan geometris query terhadap sampel
+      terdekat dari suatu kelas.
+    - Keduanya disajikan secara transparan dan berdampingan.
 
 Referensi:
     Cover, T., & Hart, P. (1967). Nearest neighbor pattern classification.
     IEEE Transactions on Information Theory, 13(1), 21-27.
+    Dalal, N., & Triggs, B. (2005). Histograms of oriented gradients for
+    human detection. CVPR.
 """
 
 import os
@@ -128,17 +134,18 @@ def classify_handwriting(
 
     Pipeline klasifikasi lengkap:
     1. Reshape feature vector query menjadi bentuk (1, n_features)
-    2. KNN predict(): voting mayoritas K tetangga -> prediksi kelas
-    3. KNN kneighbors(): hitung Euclidean Distance ke K tetangga
-    4. Ambil distance minimum (nearest neighbor) sebagai dasar similarity
-    5. Konversi distance ke similarity score via formula 1/(1+d)*100
-    6. Tentukan status kemiripan berdasarkan threshold
-    7. Hitung top-N kandidat (per kelas, berdasarkan jarak minimum)
+    2. KNN predict(): distance-weighted majority voting K tetangga -> kelas prediksi
+    3. KNN predict_proba(): hitung proporsi bobot voting (vote share) untuk tiap kelas
+    4. KNN kneighbors(): hitung Euclidean Distance ke K tetangga terdekat
+    5. Hitung jarak sampel minimum (d_min) dan Sample Similarity (%) untuk tiap kelas
+    6. Urutkan Top Kandidat:
+       - Primer: KNN Vote Share (%) descending (pemenang voting selalu #1)
+       - Sekunder: Euclidean Distance minimum ascending
+    7. Parameter utama (distance, similarity, status) diambil dari sampel terbaik milik predicted_name.
 
-    Mengapa menggunakan kneighbors() bukan predict_proba():
-        kneighbors() mengembalikan jarak Euclidean sebenarnya di ruang fitur,
-        sedangkan predict_proba() hanya menghitung proporsi voting yang tidak
-        merepresentasikan kedekatan geometris feature vector.
+    Pemisahan Dua Metrik:
+    - KNN Weighted Vote Share (%): Menunjukkan persentase perolehan bobot voting KNN (K=5).
+    - Sample Similarity (%): Menunjukkan kemiripan geometris sampel terdekat berbasis normalized HOG distance.
 
     Args:
         query_feature: Feature vector HOG dari citra query (shape: (n_features,))
@@ -149,12 +156,13 @@ def classify_handwriting(
 
     Returns:
         dict: Hasil klasifikasi lengkap dengan keys:
-            - predicted_name (str): Nama mahasiswa yang diprediksi
-            - euclidean_distance (float): Jarak Euclidean ke nearest neighbor
-            - similarity_percent (float): Similarity score 0-100%
+            - predicted_name (str): Nama mahasiswa yang diprediksi oleh KNN voting
+            - predicted_vote_weight (float): Persentase perolehan voting KNN (0.0 - 100.0%)
+            - euclidean_distance (float): Jarak Euclidean ke sampel terdekat milik predicted_name
+            - similarity_percent (float): Sample similarity score 0-100%
             - similarity_status (str): Kategori kemiripan
             - k_neighbors (int): Nilai K yang digunakan
-            - top_matches (list): Top-5 kandidat per kelas
+            - top_matches (list): Top-5 kandidat per kelas dengan vote_percent & distance
             - k_distances (list): Jarak ke K tetangga terdekat
     """
     # --- Step 1: Siapkan feature vector query ---
@@ -188,14 +196,16 @@ def classify_handwriting(
         min_dist_class = float(np.min(dists))
         sim_class      = euclidean_to_similarity(min_dist_class)
         class_name     = label_encoder.inverse_transform([lbl])[0]
-        vote_weight    = prob_dict.get(lbl, 0.0)
+        raw_vote_prob  = prob_dict.get(lbl, 0.0)
+        vote_percent   = round(float(raw_vote_prob) * 100.0, 2)
 
         class_results.append({
-            "name":        class_name,
-            "distance":    round(min_dist_class, 4),
-            "percent":     round(sim_class, 2),
-            "vote_weight": round(vote_weight, 4),
-            "label_id":    lbl,
+            "name":         class_name,
+            "distance":     round(min_dist_class, 4),
+            "percent":      round(sim_class, 2),
+            "vote_weight":  round(raw_vote_prob, 4),
+            "vote_percent": vote_percent,
+            "label_id":     lbl,
         })
 
     # Urutkan kandidat secara konsisten dengan mekanisme KNN:
@@ -206,29 +216,32 @@ def classify_handwriting(
 
     # --- Step 6: Parameter utama dihitung langsung dari sampel milik predicted_name (Top #1) ---
     top1 = top_matches[0]
-    predicted_distance   = float(top1["distance"])
-    predicted_similarity = float(top1["percent"])
+    predicted_distance    = float(top1["distance"])
+    predicted_similarity  = float(top1["percent"])
+    predicted_vote_weight = float(top1["vote_percent"])
     status = get_similarity_status(predicted_similarity)
 
     # Format top_matches untuk output JSON (tanpa label_id internal)
     clean_top_matches = [
         {
-            "name":        m["name"],
-            "distance":    m["distance"],
-            "percent":     m["percent"],
-            "vote_weight": m["vote_weight"],
+            "name":         m["name"],
+            "distance":     m["distance"],
+            "percent":      m["percent"],          # Sample Similarity %
+            "vote_percent": m["vote_percent"],     # KNN Weighted Vote Share %
+            "vote_weight":  m["vote_weight"],      # Normalized vote share (0.0 - 1.0)
         }
         for m in top_matches
     ]
 
     return {
-        "predicted_name":     predicted_name,
-        "euclidean_distance": round(predicted_distance, 4),
-        "similarity_percent": round(predicted_similarity, 2),
-        "similarity_status":  status,
-        "k_neighbors":        int(knn_model.n_neighbors),
-        "top_matches":        clean_top_matches,
-        "k_distances":        k_distances,
+        "predicted_name":        predicted_name,
+        "predicted_vote_weight": predicted_vote_weight,
+        "euclidean_distance":    round(predicted_distance, 4),
+        "similarity_percent":    round(predicted_similarity, 2),
+        "similarity_status":     status,
+        "k_neighbors":           int(knn_model.n_neighbors),
+        "top_matches":           clean_top_matches,
+        "k_distances":           k_distances,
     }
 
 

@@ -46,18 +46,19 @@ def api_verify():
       6. Return hasil lengkap
 
     Response JSON:
-        success             (bool)
-        predicted_name      (str)   : Nama mahasiswa yang diprediksi
-        euclidean_distance  (float) : Jarak Euclidean ke nearest neighbor
-        similarity_percent  (float) : Similarity score 0-100% (1/(1+d)*100)
-        similarity_status   (str)   : SANGAT MIRIP | MIRIP | KURANG MIRIP | TIDAK MIRIP
-        verification_status (str)   : Sama dengan similarity_status
-        top_matches         (list)  : Top-5 kandidat dengan distance & similarity
-        k_neighbors         (int)   : Nilai K yang digunakan
-        feature_vector_length (int) : Panjang feature vector HOG
-        analysis_time_seconds (float): Waktu analisis dalam detik
-        verification_id     (int)   : ID record di database
-        model_version       (str)   : Timestamp model yang digunakan
+        success               (bool)
+        predicted_name        (str)   : Nama mahasiswa yang diprediksi oleh KNN voting
+        predicted_vote_weight (float) : Persentase perolehan voting KNN (0-100%)
+        euclidean_distance    (float) : Jarak Euclidean ke sampel terdekat dari predicted_name
+        similarity_percent    (float) : Sample similarity score 0-100% (Cosine/Normalized HOG)
+        similarity_status     (str)   : SANGAT MIRIP | MIRIP | KURANG MIRIP | TIDAK MIRIP
+        verification_status   (str)   : Sama dengan similarity_status
+        top_matches           (list)  : Top-5 kandidat dengan vote_percent, percent, & distance
+        k_neighbors           (int)   : Nilai K yang digunakan (K=5)
+        feature_vector_length (int)   : Panjang feature vector HOG (8100/9216 dim)
+        analysis_time_seconds (float) : Waktu analisis dalam detik
+        verification_id       (int)   : ID record di database
+        model_version         (str)   : Timestamp model yang digunakan
     """
     if "file" not in request.files:
         return jsonify({"success": False, "message": "Tidak ada file yang diupload"}), 400
