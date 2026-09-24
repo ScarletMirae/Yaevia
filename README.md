@@ -75,19 +75,26 @@ Yaevia/
 
 ---
 
-## 📐 Formula Kemiripan (*Similarity Score*)
+## 📐 Formula Kemiripan (*Similarity Score*) & Keputusan Identifikasi
 
-Sistem menghitung kemiripan menggunakan ruang jarak Euclidean dari vektor fitur HOG:
+Sistem menghitung kemiripan geometris menggunakan ruang fitur HOG ternormalisasi L2-Hys ($N_{\text{blocks}} = 225, d_{\text{max}}^2 = 450.0$):
 
-$$\text{Similarity (\%)} = \left( \frac{1}{1 + \text{Euclidean Distance}} \right) \times 100$$
+$$\text{Similarity (\%)} = \max\left(0.0, \min\left(100.0, \left(1 - \frac{d^2}{450.0}\right) \times 100\right)\right)$$
 
-### Kategori Status Kemiripan:
-| Skor Kemiripan | Status |
-|---|---|
-| $\ge 70\%$ | 🟢 **SANGAT MIRIP** |
-| $\ge 50\%$ | 🟡 **MIRIP** |
-| $\ge 30\%$ | 🟠 **KURANG MIRIP** |
-| $< 30\%$ | 🔴 **TIDAK MIRIP** |
+### 1. Kategori Status Kemiripan Geometris (*Similarity Status*):
+| Skor Kemiripan | Batas Jarak ($d$) | Status Kemiripan |
+|---|---|---|
+| $\ge 65\%$ | $d \le 12.55$ | 🟢 **SANGAT MIRIP** |
+| $\ge 50\%$ | $d \le 15.00$ | 🟡 **MIRIP** |
+| $\ge 40\%$ | $d \le 16.43$ | 🟠 **KURANG MIRIP** |
+| $< 40\%$ | $d > 16.43$ | 🔴 **TIDAK MIRIP** |
+
+### 2. Status Keputusan Verifikasi (*Verification Status*):
+| Status Verifikasi | Kriteria Evaluasi | Keterangan |
+|---|---|---|
+| 🟢 **TERIDENTIFIKASI** | $\text{Similarity} \ge 50\%$ dan $\text{Vote Share} \ge 35\%$ | Identitas penulis terverifikasi kuat |
+| 🟡 **TIDAK PASTI** | $40\% \le \text{Similarity} < 50\%$ atau voting terbagi | Memerlukan konfirmasi manual |
+| 🔴 **TIDAK TERIDENTIFIKASI** | $\text{Similarity} < 40\%$ | Penulis tidak cocok / berbeda |
 
 ---
 
@@ -97,18 +104,19 @@ Semua hyperparameter dapat dikonfigurasi langsung pada `backend/config.py`:
 
 ```python
 # KNN Hyperparameters
-KNN_N_NEIGHBORS = 5            # Nilai K (contoh: 3, 5, 7, 9)
+KNN_N_NEIGHBORS = 5            # Nilai K (baseline: 5; perbandingan: 3, 5, 7, 9)
 KNN_METRIC      = "euclidean"  # Jarak Euclidean
-KNN_WEIGHTS     = "distance"
+KNN_WEIGHTS     = "distance"   # Weighted voting (1/d)
 
 # HOG Hyperparameters (Dalal & Triggs, 2005)
-HOG_ORIENTATIONS    = 9        # Jumlah orientasi gradient (contoh: 6, 9, 12)
+HOG_ORIENTATIONS    = 9        # Jumlah orientasi gradient
 HOG_PIXELS_PER_CELL = (8, 8)   # Ukuran cell dalam pixel
-HOG_CELLS_PER_BLOCK = (2, 2)   # Ukuran blok dalam cell
+HOG_CELLS_PER_BLOCK = (2, 2)   # Ukuran blok dalam cell (225 blok = 8100 dimensi)
 HOG_BLOCK_NORM      = "L2-Hys"
 
 # Train/Test Split
-TEST_SIZE           = 0.2      # 80:20 Train-Test Split
+TEST_SIZE           = 0.2      # 80:20 Train-Test Split (stratified)
+RANDOM_STATE        = 42
 ```
 
 ---
@@ -144,6 +152,7 @@ python tests/evaluate_model.py
 | `POST` | `/api/verify` | Ekstraksi HOG & verifikasi citra input |
 | `GET` | `/api/verify/history` | Riwayat log verifikasi dengan pagination |
 | `GET` | `/api/evaluate` | Data metrik performa & Confusion Matrix |
+| `GET` | `/api/evaluate/compare-k` | Evaluasi perbandingan nilai K (K=3, 5, 7, 9) |
 
 ---
 

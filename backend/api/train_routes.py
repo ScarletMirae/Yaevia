@@ -116,19 +116,21 @@ def api_train_status():
         meta = get_active_model_meta()
         if not meta:
             return jsonify({
+                "success":   True,
                 "has_model": False,
                 "message":   "Belum ada model terlatih.",
                 "model_meta": None,
             }), 200
 
         return jsonify({
+            "success":    True,
             "has_model":  True,
             "message":    "Model aktif ditemukan.",
             "model_meta": meta,
         }), 200
 
     except Exception as e:
-        return jsonify({"has_model": False, "message": str(e)}), 500
+        return jsonify({"success": False, "has_model": False, "message": str(e)}), 500
 
 
 @train_bp.route("/api/model/info", methods=["GET"])

@@ -77,6 +77,23 @@ SIMILARITY_THRESHOLDS = {
     # < 40%  → TIDAK MIRIP
 }
 
+# ==============================================================================
+# VERIFICATION / IDENTIFICATION DECISION THRESHOLDS (Uncertainty & Rejection)
+# BAB IV — Mekanisme Keputusan Identifikasi:
+#   Membedakan antara Similarity Status (geometris) dengan Verification Status (keputusan):
+#     - TERIDENTIFIKASI    : similarity >= 50.0% (MIRIP/SANGAT MIRIP) dan vote share memadai (>= 35.0%)
+#     - TIDAK PASTI        : similarity 40.0% - 50.0% (KURANG MIRIP) atau vote share terpecah
+#     - TIDAK TERIDENTIFIKASI: similarity < 40.0% (TIDAK MIRIP)
+# ==============================================================================
+VERIFICATION_CONFIDENCE_THRESHOLDS = {
+    "min_similarity_accept":    50.0,  # Minimal similarity % untuk TERIDENTIFIKASI
+    "min_similarity_uncertain": 40.0,  # Batas bawah similarity % untuk TIDAK PASTI
+    "min_vote_share_accept":    35.0,  # Minimal KNN vote share % untuk identifikasi meyakinkan
+}
+
+# Daftar nilai K ganjil untuk analisis perbandingan performa di skripsi
+EVALUATION_K_VALUES = [3, 5, 7, 9]
+
 # Minimum sampel per mahasiswa agar bisa diikutkan training
 MIN_SAMPLES_PER_CLASS = 2
 

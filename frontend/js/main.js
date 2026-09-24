@@ -272,21 +272,30 @@ function getSimilarityBadge(percent) {
   if (percent === null || percent === undefined) return "—";
   const pct = parseFloat(percent);
   let cls = "badge-red";
-  if (pct >= 75) cls = "badge-green";
-  else if (pct >= 60) cls = "badge-gold";
+  if (pct >= 65) cls = "badge-green";
+  else if (pct >= 50) cls = "badge-gold";
   else if (pct >= 40) cls = "badge-yellow";
   return `<span class="badge ${cls}">${pct.toFixed(1)}%</span>`;
 }
 
 function getStatusBadge(status) {
   if (!status) return "—";
-  if (status.includes("SANGAT YAKIN"))
-    return `<span class="badge badge-green"><i data-lucide="shield-check"></i> Sangat Yakin</span>`;
-  if (status.includes("TERIDENTIFIKASI"))
-    return `<span class="badge badge-gold"><i data-lucide="check-circle"></i> Teridentifikasi</span>`;
-  if (status.includes("TIDAK PASTI"))
+  const s = String(status).toUpperCase();
+  if (s === "SANGAT MIRIP" || s === "SANGAT YAKIN")
+    return `<span class="badge badge-green"><i data-lucide="shield-check"></i> ${status}</span>`;
+  if (s === "TERIDENTIFIKASI")
+    return `<span class="badge badge-green"><i data-lucide="check-circle"></i> Teridentifikasi</span>`;
+  if (s === "MIRIP")
+    return `<span class="badge badge-gold"><i data-lucide="check-circle"></i> Mirip</span>`;
+  if (s === "TIDAK PASTI")
     return `<span class="badge badge-yellow"><i data-lucide="help-circle"></i> Tidak Pasti</span>`;
-  return `<span class="badge badge-red"><i data-lucide="x-circle"></i> Tidak Teridentifikasi</span>`;
+  if (s === "KURANG MIRIP")
+    return `<span class="badge badge-yellow"><i data-lucide="help-circle"></i> Kurang Mirip</span>`;
+  if (s === "TIDAK TERIDENTIFIKASI")
+    return `<span class="badge badge-red"><i data-lucide="x-circle"></i> Tidak Teridentifikasi</span>`;
+  if (s === "TIDAK MIRIP")
+    return `<span class="badge badge-red"><i data-lucide="x-circle"></i> Tidak Mirip</span>`;
+  return `<span class="badge badge-gold">${status}</span>`;
 }
 
 // =========================================================

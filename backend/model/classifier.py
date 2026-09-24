@@ -42,8 +42,11 @@ import numpy as np
 import joblib
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import MODEL_SAVED_DIR, SIMILARITY_THRESHOLDS
+from config import (
+    MODEL_SAVED_DIR, SIMILARITY_THRESHOLDS, VERIFICATION_CONFIDENCE_THRESHOLDS,
+)
 from database import get_connection
+from model.trainer import get_latest_model_paths
 
 logger = logging.getLogger(__name__)
 
@@ -92,14 +95,14 @@ def get_similarity_status(similarity_pct: float) -> str:
     """
     BAB IV - Klasifikasi Status Kemiripan Tulisan Tangan:
 
-    Mengklasifikasikan similarity score menjadi 4 kategori kemiripan.
-    Threshold dapat dikonfigurasi di config.py -> SIMILARITY_THRESHOLDS.
+    Mengklasifikasikan similarity score menjadi 4 kategori kemiripan geometris.
+    Threshold dikonfigurasi di config.py -> SIMILARITY_THRESHOLDS.
 
-    Threshold default (berbasis kalibrasi eksperimental):
-        >= 70% -> SANGAT MIRIP   (highly likely same writer)
-        >= 50% -> MIRIP          (possibly same writer)
-        >= 30% -> KURANG MIRIP   (uncertain)
-        <  30% -> TIDAK MIRIP    (likely different writer)
+    Threshold default:
+        >= 65% -> SANGAT MIRIP   (d <= 12.55)
+        >= 50% -> MIRIP          (d <= 15.00)
+        >= 40% -> KURANG MIRIP   (d <= 16.43)
+        <  40% -> TIDAK MIRIP    (d > 16.43)
 
     Args:
         similarity_pct (float): Similarity Score dalam persen.
@@ -108,14 +111,54 @@ def get_similarity_status(similarity_pct: float) -> str:
         str: Status kemiripan ('SANGAT MIRIP' | 'MIRIP' | 'KURANG MIRIP' | 'TIDAK MIRIP')
     """
     t = SIMILARITY_THRESHOLDS
-    if similarity_pct >= t.get("sangat_mirip", 70.0):
+    if similarity_pct >= t.get("sangat_mirip", 65.0):
         return "SANGAT MIRIP"
     elif similarity_pct >= t.get("mirip", 50.0):
         return "MIRIP"
-    elif similarity_pct >= t.get("kurang_mirip", 30.0):
+    elif similarity_pct >= t.get("kurang_mirip", 40.0):
         return "KURANG MIRIP"
     else:
         return "TIDAK MIRIP"
+
+
+def get_verification_status(
+    similarity_pct: float,
+    vote_share_pct: float = None,
+    top_matches: list = None,
+) -> str:
+    """
+    BAB IV — Mekanisme Keputusan Verifikasi / Identifikasi (Uncertainty & Rejection):
+
+    Memisahkan status keputusan verifikasi dari sekadar kemiripan geometris:
+    - TERIDENTIFIKASI    : similarity >= min_similarity_accept (50.0%) DAN vote_share >= min_vote_share_accept (35.0%)
+    - TIDAK PASTI        : similarity antara 40.0% - 50.0% ATAU vote share terbagi/ambigu
+    - TIDAK TERIDENTIFIKASI: similarity < min_similarity_uncertain (40.0%)
+
+    Args:
+        similarity_pct (float): Nilai kemiripan sampel terbaik (%)
+        vote_share_pct (float, optional): Persentase voting KNN (%)
+        top_matches (list, optional): Daftar top matches
+
+    Returns:
+        str: 'TERIDENTIFIKASI' | 'TIDAK PASTI' | 'TIDAK TERIDENTIFIKASI'
+    """
+    cfg = VERIFICATION_CONFIDENCE_THRESHOLDS
+    min_accept = cfg.get("min_similarity_accept", 50.0)
+    min_uncertain = cfg.get("min_similarity_uncertain", 40.0)
+    min_vote_share = cfg.get("min_vote_share_accept", 35.0)
+
+    if similarity_pct < min_uncertain:
+        return "TIDAK TERIDENTIFIKASI"
+    
+    if similarity_pct >= min_accept:
+        if vote_share_pct is None or vote_share_pct >= min_vote_share:
+            return "TERIDENTIFIKASI"
+        else:
+            # Kemiripan cukup tinggi tapi konsensus voting KNN terpecah antar kandidat
+            return "TIDAK PASTI"
+    
+    # 40.0 <= similarity_pct < 50.0
+    return "TIDAK PASTI"
 
 
 # ==============================================================================
@@ -136,39 +179,24 @@ def classify_handwriting(
     1. Reshape feature vector query menjadi bentuk (1, n_features)
     2. KNN predict(): distance-weighted majority voting K tetangga -> kelas prediksi
     3. KNN predict_proba(): hitung proporsi bobot voting (vote share) untuk tiap kelas
-    4. KNN kneighbors(): hitung Euclidean Distance ke K tetangga terdekat
-    5. Hitung jarak sampel minimum (d_min) dan Sample Similarity (%) untuk tiap kelas
-    6. Urutkan Top Kandidat:
+    4. KNN kneighbors(): hitung Euclidean Distance dan indeks ke K tetangga terdekat
+    5. Hitung rincian K tetangga terdekat (diagnostik transparansi KNN)
+    6. Hitung jarak sampel minimum (d_min) dan Sample Similarity (%) untuk tiap kelas
+    7. Urutkan Top Kandidat:
        - Primer: KNN Vote Share (%) descending (pemenang voting selalu #1)
        - Sekunder: Euclidean Distance minimum ascending
-    7. Parameter utama (distance, similarity, status) diambil dari sampel terbaik milik predicted_name.
+    8. Parameter utama (distance, similarity, status) diambil dari sampel terbaik milik predicted_name.
 
-    Pemisahan Dua Metrik:
+    Pemisahan Metrik:
     - KNN Weighted Vote Share (%): Menunjukkan persentase perolehan bobot voting KNN (K=5).
     - Sample Similarity (%): Menunjukkan kemiripan geometris sampel terdekat berbasis normalized HOG distance.
-
-    Args:
-        query_feature: Feature vector HOG dari citra query (shape: (n_features,))
-        knn_model: Model KNeighborsClassifier yang sudah difit
-        label_encoder: LabelEncoder untuk decode nama mahasiswa
-        X_train: Matrix fitur data training (shape: (n_samples, n_features))
-        y_train_encoded: Label terenkode data training (shape: (n_samples,))
-
-    Returns:
-        dict: Hasil klasifikasi lengkap dengan keys:
-            - predicted_name (str): Nama mahasiswa yang diprediksi oleh KNN voting
-            - predicted_vote_weight (float): Persentase perolehan voting KNN (0.0 - 100.0%)
-            - euclidean_distance (float): Jarak Euclidean ke sampel terdekat milik predicted_name
-            - similarity_percent (float): Sample similarity score 0-100%
-            - similarity_status (str): Kategori kemiripan
-            - k_neighbors (int): Nilai K yang digunakan
-            - top_matches (list): Top-5 kandidat per kelas dengan vote_percent & distance
-            - k_distances (list): Jarak ke K tetangga terdekat
+    - Verification Status: Keputusan verifikasi (TERIDENTIFIKASI / TIDAK PASTI / TIDAK TERIDENTIFIKASI).
+    - Similarity Status: Level kemiripan visual (SANGAT MIRIP / MIRIP / KURANG MIRIP / TIDAK MIRIP).
     """
     # --- Step 1: Siapkan feature vector query ---
     query = np.array(query_feature).reshape(1, -1)
 
-    # --- Step 2: Prediksi kelas dengan KNN (voting mayoritas K tetangga) ---
+    # --- Step 2: Prediksi kelas dengan KNN (voting mayoritas berbobot jarak) ---
     predicted_label = knn_model.predict(query)[0]
     predicted_name  = label_encoder.inverse_transform([predicted_label])[0]
 
@@ -178,7 +206,32 @@ def classify_handwriting(
 
     # --- Step 4: Ambil K-nearest neighbors dan jarak Euclideannya ---
     k_distances_arr, k_indices_arr = knn_model.kneighbors(query)
-    k_distances = [round(float(d), 4) for d in k_distances_arr[0]]
+    k_dists = [float(d) for d in k_distances_arr[0]]
+    k_idxs  = [int(idx) for idx in k_indices_arr[0]]
+    
+    # Hitung bobot per tetangga w_i = 1 / (d_i + eps)
+    eps = 1e-7
+    raw_weights = [1.0 / max(d, eps) for d in k_dists]
+    total_weight = sum(raw_weights) if sum(raw_weights) > 0 else 1.0
+
+    k_neighbors_detail = []
+    neighbor_class_counts = {}
+    for rank_idx, (d, s_idx, w) in enumerate(zip(k_dists, k_idxs, raw_weights), start=1):
+        lbl = y_train_encoded[s_idx]
+        name = label_encoder.inverse_transform([lbl])[0]
+        neighbor_class_counts[name] = neighbor_class_counts.get(name, 0) + 1
+        
+        contrib_pct = round((w / total_weight) * 100.0, 2)
+        sim_pct = euclidean_to_similarity(d)
+        k_neighbors_detail.append({
+            "rank": rank_idx,
+            "sample_index": s_idx,
+            "name": name,
+            "distance": round(d, 4),
+            "similarity_percent": sim_pct,
+            "weight": round(w, 5),
+            "vote_contrib_pct": contrib_pct,
+        })
 
     # --- Step 5: Evaluasi jarak terbaik (minimum distance) per kelas ---
     unique_labels = np.unique(y_train_encoded)
@@ -198,14 +251,16 @@ def classify_handwriting(
         class_name     = label_encoder.inverse_transform([lbl])[0]
         raw_vote_prob  = prob_dict.get(lbl, 0.0)
         vote_percent   = round(float(raw_vote_prob) * 100.0, 2)
+        n_k_count      = neighbor_class_counts.get(class_name, 0)
 
         class_results.append({
-            "name":         class_name,
-            "distance":     round(min_dist_class, 4),
-            "percent":      round(sim_class, 2),
-            "vote_weight":  round(raw_vote_prob, 4),
-            "vote_percent": vote_percent,
-            "label_id":     lbl,
+            "name":           class_name,
+            "distance":       round(min_dist_class, 4),
+            "percent":        round(sim_class, 2),
+            "vote_weight":    round(raw_vote_prob, 4),
+            "vote_percent":   vote_percent,
+            "neighbor_count": n_k_count,
+            "label_id":       lbl,
         })
 
     # Urutkan kandidat secara konsisten dengan mekanisme KNN:
@@ -219,16 +274,19 @@ def classify_handwriting(
     predicted_distance    = float(top1["distance"])
     predicted_similarity  = float(top1["percent"])
     predicted_vote_weight = float(top1["vote_percent"])
-    status = get_similarity_status(predicted_similarity)
+    
+    sim_status  = get_similarity_status(predicted_similarity)
+    verif_status = get_verification_status(predicted_similarity, predicted_vote_weight, top_matches)
 
-    # Format top_matches untuk output JSON (tanpa label_id internal)
+    # Format top_matches untuk output JSON
     clean_top_matches = [
         {
-            "name":         m["name"],
-            "distance":     m["distance"],
-            "percent":      m["percent"],          # Sample Similarity %
-            "vote_percent": m["vote_percent"],     # KNN Weighted Vote Share %
-            "vote_weight":  m["vote_weight"],      # Normalized vote share (0.0 - 1.0)
+            "name":           m["name"],
+            "distance":       m["distance"],
+            "percent":        m["percent"],          # Sample Similarity %
+            "vote_percent":   m["vote_percent"],     # KNN Weighted Vote Share %
+            "vote_weight":    m["vote_weight"],      # Normalized vote share (0.0 - 1.0)
+            "neighbor_count": m["neighbor_count"],   # Jumlah tetangga di K=5
         }
         for m in top_matches
     ]
@@ -238,49 +296,56 @@ def classify_handwriting(
         "predicted_vote_weight": predicted_vote_weight,
         "euclidean_distance":    round(predicted_distance, 4),
         "similarity_percent":    round(predicted_similarity, 2),
-        "similarity_status":     status,
+        "similarity_status":     sim_status,
+        "verification_status":   verif_status,
         "k_neighbors":           int(knn_model.n_neighbors),
         "top_matches":           clean_top_matches,
-        "k_distances":           k_distances,
+        "k_distances":           [round(d, 4) for d in k_dists],
+        "k_neighbors_detail":    k_neighbors_detail,
     }
 
 
 # ==============================================================================
-# LOAD MODEL DARI DISK
+# LOAD MODEL DARI DISK (UNIFIED & DATABASE-AWARE)
 # ==============================================================================
 
 def _load_latest_model_files() -> tuple:
     """
-    Memuat model KNN terbaru dan file pendukungnya dari direktori saved.
+    Memuat model KNN aktif dan file pendukungnya.
+    Menggunakan get_latest_model_paths() sebagai single source of truth.
 
     Returns:
         tuple: (knn_model, label_encoder, X_train, y_train, timestamp)
                Raises FileNotFoundError jika belum ada model.
     """
-    model_files = glob.glob(os.path.join(MODEL_SAVED_DIR, "knn_model_*.joblib"))
-    if not model_files:
-        raise FileNotFoundError(
-            "Belum ada model terlatih. Jalankan training terlebih dahulu."
-        )
+    paths = get_latest_model_paths()
+    if paths and os.path.exists(paths["model_path"]):
+        model_path = paths["model_path"]
+        encoder_path = paths["le_path"]
+        Xtrain_path  = paths["Xtrain_path"]
+        ytrain_path  = paths["ytrain_path"]
+        timestamp    = paths["timestamp"]
+    else:
+        # Fallback ke pencarian direktori jika model_meta belum terisi
+        model_files = glob.glob(os.path.join(MODEL_SAVED_DIR, "knn_model_*.joblib"))
+        if not model_files:
+            raise FileNotFoundError(
+                "Belum ada model terlatih. Jalankan training terlebih dahulu."
+            )
+        model_path = max(model_files, key=os.path.getmtime)
+        timestamp  = os.path.basename(model_path).replace("knn_model_", "").replace(".joblib", "")
+        encoder_path = os.path.join(MODEL_SAVED_DIR, f"label_encoder_{timestamp}.joblib")
+        Xtrain_path  = os.path.join(MODEL_SAVED_DIR, f"train_features_{timestamp}.joblib")
+        ytrain_path  = os.path.join(MODEL_SAVED_DIR, f"train_labels_{timestamp}.joblib")
 
-    # Ambil model terbaru berdasarkan waktu modifikasi file
-    latest_model = max(model_files, key=os.path.getmtime)
-    timestamp    = os.path.basename(latest_model).replace("knn_model_", "").replace(".joblib", "")
-
-    encoder_path = os.path.join(MODEL_SAVED_DIR, f"label_encoder_{timestamp}.joblib")
-    Xtrain_path  = os.path.join(MODEL_SAVED_DIR, f"train_features_{timestamp}.joblib")
-    ytrain_path  = os.path.join(MODEL_SAVED_DIR, f"train_labels_{timestamp}.joblib")
-
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"Model file {model_path} tidak ditemukan.")
     if not os.path.exists(encoder_path):
-        raise FileNotFoundError(
-            f"Label encoder tidak ditemukan untuk model {timestamp}. Lakukan training ulang."
-        )
+        raise FileNotFoundError(f"Label encoder {encoder_path} tidak ditemukan.")
     if not os.path.exists(Xtrain_path) or not os.path.exists(ytrain_path):
-        raise FileNotFoundError(
-            f"Data training tidak ditemukan untuk model {timestamp}. Lakukan training ulang."
-        )
+        raise FileNotFoundError(f"Data training untuk model {timestamp} tidak ditemukan.")
 
-    knn_model     = joblib.load(latest_model)
+    knn_model     = joblib.load(model_path)
     label_encoder = joblib.load(encoder_path)
     X_train       = joblib.load(Xtrain_path)
     y_train       = joblib.load(ytrain_path)
@@ -302,14 +367,6 @@ def verify_image(
     BAB IV - Fungsi Utama Verifikasi Gambar:
 
     Dipanggil dari api/verify_routes.py setelah preprocessing & HOG extraction.
-
-    Pipeline yang dipanggil:
-        feature_vector HOG
-            -> load model KNN + training features
-            -> classify_handwriting() [KNN + Euclidean Distance]
-            -> similarity score + status
-            -> simpan ke database verifications
-            -> return hasil lengkap
 
     Args:
         feature_vector: Feature vector HOG dari gambar query.
@@ -348,7 +405,7 @@ def verify_image(
     # Konversi top_matches ke JSON string untuk database
     top_matches_json = json.dumps(result["top_matches"], ensure_ascii=False)
 
-    # Simpan hasil ke database
+    # Simpan hasil ke database verifications
     try:
         conn = get_connection()
         cur  = conn.cursor()
@@ -365,8 +422,8 @@ def verify_image(
             result["predicted_name"],
             result["similarity_percent"],
             result["euclidean_distance"],
-            result["similarity_status"],   # status utama
-            result["similarity_status"],   # kolom legacy
+            result["verification_status"],   # TERIDENTIFIKASI / TIDAK PASTI / TIDAK TERIDENTIFIKASI
+            result["similarity_status"],     # SANGAT MIRIP / MIRIP / KURANG MIRIP / TIDAK MIRIP
             top_matches_json,
             model_version or timestamp,
             result["feature_vector_length"],
@@ -384,3 +441,4 @@ def verify_image(
     result["model_version"] = model_version or timestamp
 
     return result
+

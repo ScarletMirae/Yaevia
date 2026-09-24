@@ -17,7 +17,7 @@ import glob
 from flask import Blueprint, jsonify
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from model.trainer import get_latest_model_paths, get_latest_metadata
+from model.trainer import get_latest_model_paths, get_latest_metadata, evaluate_k_comparison
 from database import get_connection
 
 try:
@@ -154,3 +154,20 @@ def api_evaluate():
     except Exception as e:
         logger.error(f"Evaluate error: {e}", exc_info=True)
         return jsonify({"success": False, "message": str(e)}), 500
+
+
+@evaluate_bp.route("/api/evaluate/compare-k", methods=["GET"])
+def api_evaluate_compare_k():
+    """
+    GET /api/evaluate/compare-k
+    Mengevaluasi dan membandingkan performa berbagai nilai K ganjil (K=3, 5, 7, 9)
+    pada data pengujian yang sama tanpa memicu retraining ataupun data leakage.
+    """
+    try:
+        res = evaluate_k_comparison()
+        status_code = 200 if res.get("success") else 400
+        return jsonify(res), status_code
+    except Exception as e:
+        logger.error(f"Compare-K error: {e}", exc_info=True)
+        return jsonify({"success": False, "message": str(e)}), 500
+

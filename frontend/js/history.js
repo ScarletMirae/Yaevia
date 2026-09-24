@@ -150,8 +150,8 @@ async function showDetail(id) {
         ${detailRow("Waktu", formatDate(r.verification_timestamp), "clock")}
         ${detailRow("File", `<span style="word-break:break-all;">${r.query_filename}</span>`, "file-image")}
         ${detailRow("Prediksi", `<strong style="color:var(--text);font-size:0.95rem;">${r.predicted_name || "—"}</strong>`, "user-check")}
-        ${detailRow("Similarity", getSimilarityBadge(r.similarity_percent), "star")}
-        ${detailRow("Status", getStatusBadge(r.verification_status), "shield")}
+        ${detailRow("Similarity", `${getSimilarityBadge(r.similarity_percent)} <span style="font-size:0.78rem;color:var(--text-muted);">(${r.similarity_status || "—"})</span>`, "star")}
+        ${detailRow("Status Verifikasi", getStatusBadge(r.verification_status), "shield")}
         ${detailRow("Model", `<span style="font-size:0.78rem;">${r.model_version || "—"}</span>`, "cpu")}
       </table>
 
@@ -161,12 +161,16 @@ async function showDetail(id) {
             <i data-lucide="list-ordered" style="width:12px;height:12px;"></i> Top Kandidat
           </p>
           ${matches.map((m, i) => `
-            <div style="display:flex;justify-content:space-between;padding:0.42rem 0.6rem;background:${i===0?"var(--soft)":"transparent"};border-radius:var(--radius-sm);margin-bottom:0.25rem;font-size:0.84rem;border:1px solid ${i===0?"var(--pink)":"transparent"};">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:0.42rem 0.6rem;background:${i===0?"var(--soft)":"transparent"};border-radius:var(--radius-sm);margin-bottom:0.25rem;font-size:0.84rem;border:1px solid ${i===0?"var(--pink)":"transparent"};">
               <span style="color:var(--text);display:flex;align-items:center;gap:0.35rem;">
                 <i data-lucide="${i===0?"star":"circle"}" style="width:12px;height:12px;color:${i===0?"var(--gold)":"var(--text-muted)"};"></i>
                 ${i + 1}. ${m.name}
+                ${m.neighbor_count !== undefined ? `<span style="font-size:0.72rem;color:var(--text-muted);background:var(--white);padding:1px 5px;border-radius:4px;border:1px solid var(--border);">${m.neighbor_count}/5 K-NN</span>` : ''}
               </span>
-              <span style="font-weight:700;color:${i===0?"var(--text)":"var(--text-muted)"};">${m.percent.toFixed(1)}%</span>
+              <div style="text-align:right;">
+                <span style="font-weight:700;color:${i===0?"var(--text)":"var(--text-muted)"};">${(m.percent || 0).toFixed(1)}% sim</span>
+                ${m.vote_percent !== undefined ? `<span style="font-size:0.72rem;color:var(--text-muted);margin-left:4px;">(${(m.vote_percent || 0).toFixed(1)}% vote)</span>` : ''}
+              </div>
             </div>`).join("")}
         </div>` : ""}
 

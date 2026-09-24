@@ -56,7 +56,7 @@ from config import (
     KNN_N_NEIGHBORS, KNN_METRIC, KNN_WEIGHTS, KNN_ALGORITHM,
     HOG_ORIENTATIONS, HOG_PIXELS_PER_CELL, HOG_CELLS_PER_BLOCK, HOG_BLOCK_NORM,
     TEST_SIZE, RANDOM_STATE, IMAGE_SIZE,
-    MIN_SAMPLES_PER_CLASS,
+    MIN_SAMPLES_PER_CLASS, EVALUATION_K_VALUES,
 )
 from preprocessing.image_processor import preprocess_image
 from features.hog_extractor import extract_hog_features
@@ -168,7 +168,8 @@ def load_dataset_from_db() -> tuple:
     """
     conn = get_connection()
     rows = conn.execute(
-        "SELECT file_path, student_name, student_id, mata_kuliah FROM dataset"
+        "SELECT file_path, student_name, student_id, mata_kuliah FROM dataset "
+        "ORDER BY student_name ASC, original_filename ASC, saved_filename ASC"
     ).fetchall()
     conn.close()
 
@@ -405,8 +406,13 @@ def train_model(
     # LANGKAH 9: SIMPAN MODEL, DATA, DAN METADATA
     # =========================================================
     print("[TRAINER] Langkah 9/9: Menyimpan model dan metadata...")
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    base_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = base_timestamp
+    counter = 1
     os.makedirs(MODEL_DIR, exist_ok=True)
+    while os.path.exists(os.path.join(MODEL_DIR, f"knn_model_{timestamp}.joblib")):
+        timestamp = f"{base_timestamp}_{counter}"
+        counter += 1
 
     # Path file-file yang disimpan
     model_filename   = f"knn_model_{timestamp}.joblib"
@@ -615,3 +621,102 @@ def get_latest_metadata() -> dict:
             return json.load(f)
     except Exception:
         return None
+
+
+def evaluate_k_comparison(
+    X_train=None,
+    y_train=None,
+    X_test=None,
+    y_test=None,
+    k_values: list = None,
+    metric: str = KNN_METRIC,
+    weights: str = KNN_WEIGHTS,
+) -> dict:
+    """
+    BAB IV / BAB V — Analisis Perbandingan Nilai K pada KNN:
+    
+    Mengevaluasi performa klasifikasi pada beberapa nilai K ganjil (misal K=3, 5, 7, 9)
+    menggunakan data train/test split yang identik tanpa melatih ulang / menimpa model aktif.
+    
+    Mencegah data leakage dengan memanfaatkan X_train dan X_test yang terisolasi.
+    
+    Args:
+        X_train (ndarray, optional): Feature matrix training. Jika None, dimuat dari model aktif.
+        y_train (ndarray, optional): Label vector training.
+        X_test (ndarray, optional): Feature matrix testing.
+        y_test (ndarray, optional): Label vector testing.
+        k_values (list, optional): List nilai K yang diuji (default EVALUATION_K_VALUES: [3, 5, 7, 9]).
+        metric (str): Metrik jarak (default KNN_METRIC: 'euclidean').
+        weights (str): Bobot KNN (default KNN_WEIGHTS: 'distance').
+        
+    Returns:
+        dict: Hasil perbandingan performa per nilai K.
+    """
+    if k_values is None:
+        k_values = EVALUATION_K_VALUES
+
+    if X_train is None or y_train is None or X_test is None or y_test is None:
+        paths = get_latest_model_paths()
+        if not paths:
+            return {
+                "success": False,
+                "message": "Belum ada model aktif. Lakukan training model terlebih dahulu.",
+                "results": [],
+            }
+        
+        if not os.path.exists(paths["Xtrain_path"]) or not os.path.exists(paths["Xtest_path"]):
+            return {
+                "success": False,
+                "message": "File fitur train/test tidak ditemukan untuk model aktif.",
+                "results": [],
+            }
+            
+        X_train = joblib.load(paths["Xtrain_path"])
+        y_train = joblib.load(paths["ytrain_path"])
+        X_test  = joblib.load(paths["Xtest_path"])
+        y_test  = joblib.load(paths["ytest_path"])
+
+    n_train = len(X_train)
+    n_test  = len(X_test)
+    
+    results = []
+    for k in k_values:
+        if k > n_train:
+            continue
+            
+        knn = KNeighborsClassifier(
+            n_neighbors = k,
+            metric      = metric,
+            weights     = weights,
+            algorithm   = KNN_ALGORITHM,
+        )
+        knn.fit(X_train, y_train)
+        
+        y_train_pred = knn.predict(X_train)
+        y_test_pred  = knn.predict(X_test)
+        
+        train_acc = float(accuracy_score(y_train, y_train_pred))
+        test_acc  = float(accuracy_score(y_test,  y_test_pred))
+        precision = float(precision_score(y_test, y_test_pred, average="macro", zero_division=0))
+        recall    = float(recall_score   (y_test, y_test_pred, average="macro", zero_division=0))
+        f1        = float(f1_score       (y_test, y_test_pred, average="macro", zero_division=0))
+        
+        results.append({
+            "k": k,
+            "train_accuracy": round(train_acc * 100, 2),
+            "test_accuracy": round(test_acc * 100, 2),
+            "precision_macro": round(precision * 100, 2),
+            "recall_macro": round(recall * 100, 2),
+            "f1_macro": round(f1 * 100, 2),
+            "is_default": (k == KNN_N_NEIGHBORS),
+        })
+
+    return {
+        "success": True,
+        "n_train_samples": n_train,
+        "n_test_samples": n_test,
+        "metric": metric,
+        "weights": weights,
+        "results": results,
+    }
+

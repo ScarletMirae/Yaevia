@@ -5,6 +5,7 @@ Modul ini mengimplementasikan seluruh tahapan preprocessing citra
 tulisan tangan sebelum ekstraksi fitur HOG dilakukan.
 
 Tahapan preprocessing (berurutan):
+    0. Orientation Normalization — normalisasi rotasi agar selalu portrait (tegak)
     1. Grayscale Conversion  — konversi ke citra abu-abu
     2. Resize                — normalisasi ukuran
     3. Gaussian Blur         — smoothing untuk reduksi noise awal
@@ -34,6 +35,33 @@ from config import (
     MEDIAN_BLUR_KERNEL,
     MORPH_KERNEL_SIZE,
 )
+
+
+# ==============================================================================
+# TAHAP 0: ORIENTATION NORMALIZATION (Auto-Orientation to Portrait)
+# ==============================================================================
+def normalize_orientation(image: np.ndarray) -> np.ndarray:
+    """
+    Menormalisasi orientasi citra agar selalu dalam posisi portrait (tegak).
+    Jika lebar citra lebih besar dari tinggi (landscape / foto miring 90 derajat),
+    citra dirotasi 90 derajat searah jarum jam sehingga menjadi portrait.
+
+    Alasan:
+        Foto lembar jawaban yang diambil miring (landscape) menghasilkan vektor
+        orientasi gradien HOG yang berotasi 90 derajat terhadap foto portrait,
+        sehingga merusak konsistensi pengukuran jarak kemiripan (Euclidean Distance).
+        Dengan auto-orientation, seluruh citra dipastikan berada dalam orientasi portrait seragam.
+
+    Args:
+        image (np.ndarray): Citra input (BGR atau Grayscale)
+
+    Returns:
+        np.ndarray: Citra berorientasi portrait (tinggi >= lebar)
+    """
+    h, w = image.shape[:2]
+    if w > h:
+        return cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
+    return image
 
 
 # ==============================================================================
@@ -287,6 +315,9 @@ def preprocess_from_array(image_array: np.ndarray, save_path: str = None) -> np.
     Returns:
         np.ndarray: Citra hasil preprocessing (128x128 biner)
     """
+    # --- Tahap 0: Orientation Normalization (Auto-Orientation to Portrait) ---
+    image_array = normalize_orientation(image_array)
+
     # --- Tahap 1: Grayscale ---
     gray = convert_to_grayscale(image_array)
 

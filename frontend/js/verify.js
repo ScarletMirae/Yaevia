@@ -79,9 +79,10 @@ async function animateSteps() {
 // ─────────────────────────────────────────────────────────
 function getStatusMeta(status) {
   const s = (status || "").toUpperCase();
-  if (s.includes("SANGAT MIRIP"))  return { cls: "badge-verified",   icon: "shield-check",   color: "#1a5c3a" };
-  if (s.includes("MIRIP"))         return { cls: "badge-mirip",      icon: "check-circle-2", color: "#7A5500" };
-  if (s.includes("KURANG MIRIP"))  return { cls: "badge-uncertain",  icon: "help-circle",    color: "#7A3A00" };
+  if (s.includes("SANGAT MIRIP") || s.includes("SANGAT YAKIN"))  return { cls: "badge-verified",   icon: "shield-check",   color: "#1a5c3a" };
+  if (s === "TERIDENTIFIKASI")     return { cls: "badge-verified",   icon: "check-circle-2", color: "#1a5c3a" };
+  if (s === "MIRIP")               return { cls: "badge-mirip",      icon: "check-circle-2", color: "#7A5500" };
+  if (s.includes("KURANG MIRIP") || s.includes("TIDAK PASTI"))  return { cls: "badge-uncertain",  icon: "help-circle",    color: "#7A3A00" };
   return                                  { cls: "badge-unverified", icon: "x-circle",       color: "#7A2E45" };
 }
 
@@ -159,26 +160,27 @@ function resetBtn() {
 }
 
 // ─────────────────────────────────────────────────────────
-// RENDER RESULT (Updated v2.1 — Dual Metrics & Explicit KNN Vote Share)
+// RENDER RESULT (Updated v2.2 — Dual Metrics & K-NN Breakdown)
 // ─────────────────────────────────────────────────────────
 function renderResult(data) {
-  const pct      = parseFloat(data.similarity_percent || 0);
-  const votePct  = parseFloat(
+  const pct          = parseFloat(data.similarity_percent || 0);
+  const votePct      = parseFloat(
     data.predicted_vote_weight ?? 
     (data.top_matches && data.top_matches[0] && (data.top_matches[0].vote_percent ?? (data.top_matches[0].vote_weight ? data.top_matches[0].vote_weight * 100 : 0))) ?? 
     0
   );
-  const dist     = parseFloat(data.euclidean_distance || 0);
-  const status   = data.similarity_status || data.verification_status || "TIDAK MIRIP";
-  const time     = parseFloat(data.analysis_time_seconds || 0);
-  const featLen  = data.feature_vector_length || 0;
-  const kVal     = data.k_neighbors || 5;
+  const dist         = parseFloat(data.euclidean_distance || 0);
+  const verifStatus  = data.verification_status || "TIDAK TERIDENTIFIKASI";
+  const simStatus    = data.similarity_status || "TIDAK MIRIP";
+  const time         = parseFloat(data.analysis_time_seconds || 0);
+  const featLen      = data.feature_vector_length || 0;
+  const kVal         = data.k_neighbors || 5;
 
-  // --- Status badge (Euclidean Distance based) ---
-  const meta  = getStatusMeta(status);
+  // --- Status badge (Verification Status + Similarity Status) ---
+  const meta  = getStatusMeta(verifStatus);
   const badge = document.getElementById("result-badge");
   badge.className = `result-status-badge ${meta.cls}`;
-  badge.innerHTML = `<i data-lucide="${meta.icon}"></i> ${status}`;
+  badge.innerHTML = `<i data-lucide="${meta.icon}"></i> ${verifStatus} &bull; ${simStatus}`;
 
   // --- Name & score ---
   document.getElementById("result-name").textContent = data.predicted_name || "—";
@@ -206,13 +208,14 @@ function renderResult(data) {
 
   // --- Top matches (with Explicit KNN Vote Share & Sample Similarity) ---
   const matches = data.top_matches || [];
-  document.getElementById("top-matches-list").innerHTML = matches.map((m, i) => {
+  let html = matches.map((m, i) => {
     const isTop   = i === 0;
     const simVal  = typeof m.percent === "number" ? m.percent.toFixed(1) : "—";
     const dVal    = typeof m.distance === "number" ? m.distance.toFixed(4) : "—";
     const vVal    = typeof m.vote_percent === "number" 
                     ? m.vote_percent.toFixed(1) 
                     : (typeof m.vote_weight === "number" ? (m.vote_weight * 100).toFixed(1) : "0.0");
+    const kCount  = m.neighbor_count !== undefined ? `${m.neighbor_count}/${kVal} tetangga` : '';
     
     return `
     <div style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0.85rem;
@@ -233,6 +236,7 @@ function renderResult(data) {
           <span style="font-size:0.7rem;font-weight:700;color:var(--purple);background:rgba(107,63,160,0.08);padding:0.1rem 0.4rem;border-radius:4px;display:inline-flex;align-items:center;gap:0.25rem;">
             <i data-lucide="git-merge" style="width:10px;height:10px;"></i> KNN Vote: ${vVal}%
           </span>
+          ${kCount ? `<span style="font-size:0.7rem;font-weight:600;color:var(--text-muted);background:var(--soft);padding:0.1rem 0.4rem;border-radius:4px;">${kCount}</span>` : ''}
         </div>
       </div>
       <div style="text-align:right;flex-shrink:0;">
@@ -243,6 +247,32 @@ function renderResult(data) {
     </div>`;
   }).join("");
 
+  // Append K-neighbors detail breakdown if available
+  const kDetails = data.k_neighbors_detail || [];
+  if (kDetails.length > 0) {
+    html += `
+    <div style="margin-top:1rem;padding:0.75rem;background:rgba(255,248,240,0.7);border:1px solid rgba(200,155,110,0.2);border-radius:var(--radius-sm);">
+      <div style="font-size:0.75rem;font-weight:700;color:var(--purple);margin-bottom:0.4rem;display:flex;align-items:center;gap:0.35rem;">
+        <i data-lucide="git-commit" style="width:12px;height:12px;"></i> Rincian ${kVal} Tetangga Terdekat (K-NN Breakdown)
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.4rem;">
+        ${kDetails.map(n => `
+          <div style="background:var(--white);padding:0.35rem 0.55rem;border-radius:4px;border:1px solid rgba(200,155,110,0.15);font-size:0.73rem;">
+            <div style="font-weight:700;color:var(--text);display:flex;justify-content:space-between;">
+              <span>#${n.rank} ${n.name}</span>
+              <span style="color:var(--purple);">${n.vote_contrib_pct}%</span>
+            </div>
+            <div style="color:var(--text-muted);display:flex;justify-content:space-between;margin-top:2px;">
+              <span>d = ${n.distance}</span>
+              <span>sim: ${n.similarity_percent}%</span>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    </div>`;
+  }
+
+  document.getElementById("top-matches-list").innerHTML = html;
   if (window.lucide) lucide.createIcons();
 }
 

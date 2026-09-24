@@ -100,9 +100,8 @@ def api_verify():
         if not result.get("success"):
             return jsonify(result), 400
 
-        # Tambahkan field compatibility untuk frontend lama
-        result["verification_status"] = result.get("similarity_status", "TIDAK MIRIP")
-        result["similarity_score"]     = result.get("similarity_percent", 0) / 100.0
+        # Tambahkan field compatibility untuk frontend / script evaluasi
+        result["similarity_score"] = result.get("similarity_percent", 0.0) / 100.0
 
         return jsonify(result), 200
 

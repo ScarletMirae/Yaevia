@@ -16,9 +16,13 @@ HOG dipilih karena:
     - Telah terbukti efektif untuk pengenalan pola visual
 
 BAB IV — Implementasi:
-    Feature vector HOG merepresentasikan karakteristik unik gaya tulisan
-    setiap mahasiswa. Panjang vector = (H/py)*(W/px) * (cells_per_block)^2 * orientations
-    Contoh: (128/8)*(128/8)*(2*2)*9 = 16*16*4*9 = 9216 fitur
+    Feature vector HOG merepresentasikan karakteristik unik gaya tulisan setiap mahasiswa.
+    Panjang vector dihitung berdasarkan blok tumpang tindih (overlapping blocks):
+        N_blocks_h = (H / py) - cpb_h + 1 = (128 / 8) - 2 + 1 = 15
+        N_blocks_w = (W / px) - cpb_w + 1 = (128 / 8) - 2 + 1 = 15
+        N_total_blocks = 15 * 15 = 225 blok
+        Fitur per blok = (cpb_h * cpb_w) * orientations = (2 * 2) * 9 = 36
+        Total Panjang Vektor = 225 * 36 = 8100 fitur (np.float64)
 
 Referensi:
     Dalal, N., & Triggs, B. (2005). Histograms of Oriented Gradients for Human Detection.
