@@ -1,6 +1,6 @@
 /**
- * main.js — Shared Utilities + Sakura Animation Engine
- * ======================================================
+ * main.js — Shared Utilities + Sakura Animation Engine + Global Theme Switcher
+ * ==============================================================================
  * Yae Miko Theme | Sistem Verifikasi Tulisan Tangan
  */
 
@@ -13,16 +13,63 @@ const API_BASE = (location.protocol === 'file:')
 
 // ── Init on DOM ready ─────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
+  initTheme();
   initNavbar();
   initLucide();
   initSakura();
   initLoadingOverlay();
 });
 
+// =========================================================
+// GLOBAL THEME SWITCHER (Light Mode / Night Mode)
+// =========================================================
+function initTheme() {
+  const saved = localStorage.getItem('yaevia-theme') || 'light';
+  document.documentElement.dataset.theme = saved;
+
+  const btn = ensureThemeToggleBtn();
+  if (btn) {
+    updateThemeToggleBtnUI(btn, saved);
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const current = document.documentElement.dataset.theme || 'light';
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = next;
+      localStorage.setItem('yaevia-theme', next);
+      updateThemeToggleBtnUI(btn, next);
+      if (typeof showToast === 'function') {
+        showToast(`Mode tema: ${next === 'dark' ? '🌙 Night Mode' : '☀ Light Mode'}`, 'info', 1800);
+      }
+    };
+  }
+}
+
+function ensureThemeToggleBtn() {
+  let btn = document.getElementById("theme-toggle-btn");
+  if (!btn) {
+    const navInner = document.querySelector(".navbar-inner");
+    if (navInner) {
+      btn = document.createElement("button");
+      btn.className = "theme-toggle-btn";
+      btn.id = "theme-toggle-btn";
+      btn.setAttribute("aria-label", "Switch Theme");
+      navInner.appendChild(btn);
+    }
+  }
+  return btn;
+}
+
+function updateThemeToggleBtnUI(btn, theme) {
+  if (!btn) return;
+  const isDark = theme === 'dark';
+  btn.setAttribute('aria-label', isDark ? 'Aktifkan Light Mode' : 'Aktifkan Night Mode');
+  btn.setAttribute('title', isDark ? 'Mode Terang (Light)' : 'Mode Gelap (Night)');
+  btn.innerHTML = `<i data-lucide="${isDark ? 'sun' : 'moon'}"></i>`;
+  if (window.lucide) lucide.createIcons({ nodes: [btn] });
+}
+
 // ── Loading Overlay (Navigasi Halaman) ────────────────────
-// [PNG LOADING] — Ganti file: images/icons/loading.png
 function initLoadingOverlay() {
-  // Buat overlay element jika belum ada
   if (!document.getElementById("yaevia-loading-overlay")) {
     const overlay = document.createElement("div");
     overlay.id = "yaevia-loading-overlay";
@@ -42,32 +89,25 @@ function initLoadingOverlay() {
     document.body.appendChild(overlay);
   }
 
-  // Intercept semua link navigasi (nav-link & tombol pindah halaman)
   document.addEventListener("click", (e) => {
     const link = e.target.closest("a[href]");
     if (!link) return;
 
     const href = link.getAttribute("href");
 
-    // Skip: anchor (#), javascript:, external link, link kosong, link ke halaman sama
     if (!href || href === "#" || href.startsWith("javascript:") || href.startsWith("http")) return;
     if (href === location.pathname.split("/").pop()) return;
-
-    // Skip: link yang membuka di tab baru
     if (link.target === "_blank") return;
 
-    // Tampilkan overlay + animasi progress bar selama 1500ms
     e.preventDefault();
     const overlay = document.getElementById("yaevia-loading-overlay");
     const bar = document.getElementById("loading-progress-bar");
     if (overlay) {
-      // Reset progress bar
       if (bar) bar.style.width = "0%";
       overlay.classList.add("active");
 
-      // Animate progress bar dari 0% ke 100% dalam 1500ms
       let start = null;
-      const duration = 1500;
+      const duration = 1200;
       function animateBar(timestamp) {
         if (!start) start = timestamp;
         const progress = Math.min((timestamp - start) / duration, 1);
@@ -78,16 +118,14 @@ function initLoadingOverlay() {
       }
       requestAnimationFrame(animateBar);
 
-      // Navigasi setelah 1500ms
       setTimeout(() => {
         window.location.href = href;
-      }, 1500);
+      }, 1200);
     } else {
       window.location.href = href;
     }
   });
 }
-
 
 // ── Lucide Icons Init ─────────────────────────────────────
 function initLucide() {
@@ -117,24 +155,17 @@ function initNavbar() {
 // =========================================================
 // SAKURA PETAL ANIMATION ENGINE
 // =========================================================
-/**
- * Sakura petal shape as inline SVG data URI.
- * Three variants for visual variety.
- */
 const PETAL_VARIANTS = [
-  // Soft round petal
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 28">
      <path d="M10 2 C16 2, 20 8, 18 16 C16 22, 12 26, 10 26 C8 26, 4 22, 2 16 C0 8, 4 2, 10 2Z"
            fill="rgba(247,198,217,VAR_OPACITY)"/>
      <path d="M10 2 C10 8, 10 16, 10 26" stroke="rgba(235,168,195,0.4)" stroke-width="0.5" fill="none"/>
    </svg>`,
-  // Heart petal
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 28">
      <path d="M11 4 C11 4, 5 1, 3 7 C1 13, 6 19, 11 26 C16 19, 21 13, 19 7 C17 1, 11 4, 11 4Z"
            fill="rgba(250,220,232,VAR_OPACITY)"/>
      <path d="M11 5 C11 10, 11 18, 11 26" stroke="rgba(235,168,195,0.3)" stroke-width="0.5" fill="none"/>
    </svg>`,
-  // Elongated petal
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 30">
      <ellipse cx="8" cy="15" rx="7" ry="13"
               fill="rgba(212,163,115,VAR_OPACITY)"
@@ -142,18 +173,17 @@ const PETAL_VARIANTS = [
    </svg>`,
 ];
 
-/**
- * Creates & animates sakura petals as background layer.
- * Uses pure CSS animations for compositor-thread performance.
- */
 function initSakura() {
-  // Container
-  const container = document.createElement("div");
-  container.id = "sakura-container";
-  document.body.insertBefore(container, document.body.firstChild);
+  let container = document.getElementById("sakura-container");
+  if (container && container.children.length > 0) return;
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "sakura-container";
+    document.body.insertBefore(container, document.body.firstChild);
+  }
 
-  const PETAL_COUNT    = 65;
-  const MIN_DURATION   = 10;  // seconds
+  const PETAL_COUNT    = 50;
+  const MIN_DURATION   = 10;
   const MAX_DURATION   = 26;
   const MIN_SIZE       = 7;
   const MAX_SIZE       = 22;
@@ -167,23 +197,20 @@ function spawnPetal(container, index, total, minDur, maxDur, minSz, maxSz) {
   const petal = document.createElement("div");
   petal.className = "sakura-petal";
 
-  // Random properties
   const size     = minSz + Math.random() * (maxSz - minSz);
   const duration = minDur + Math.random() * (maxDur - minDur);
-  const delay    = -(Math.random() * duration);       // negative = already in-flight on load
-  const startX   = Math.random() * 105;               // % from left (a bit beyond edges)
-  const opacity  = 0.55 + Math.random() * 0.45;      // 0.55 – 1.0
-  const swayAmt  = 40 + Math.random() * 80;           // px sway amplitude
+  const delay    = -(Math.random() * duration);
+  const startX   = Math.random() * 105;
+  const opacity  = 0.55 + Math.random() * 0.45;
+  const swayAmt  = 40 + Math.random() * 80;
   const swayDir  = Math.random() > 0.5 ? 1 : -1;
-  const blur     = size < 10 ? (Math.random() * 1.5) : 0;  // small petals get blur (depth)
-  const glow     = Math.random() > 0.6;               // some petals get soft glow
+  const blur     = size < 10 ? (Math.random() * 1.5) : 0;
+  const glow     = Math.random() > 0.6;
 
-  // Pick petal variant
   const variant  = PETAL_VARIANTS[Math.floor(Math.random() * PETAL_VARIANTS.length)];
   const svgStr   = variant.replace(/VAR_OPACITY/g, opacity.toFixed(2));
   const svgUrl   = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgStr)}`;
 
-  // Sway amounts for three quarter-points
   const swayA = `${swayAmt * swayDir}px`;
   const swayB = `${-swayAmt * swayDir * 0.6}px`;
   const swayC = `${swayAmt * swayDir * 0.8}px`;
@@ -210,7 +237,7 @@ function spawnPetal(container, index, total, minDur, maxDur, minSz, maxSz) {
 }
 
 // =========================================================
-// TOAST NOTIFICATIONS
+// TOAST NOTIFICATIONS & ALERTS
 // =========================================================
 const TOAST_ICONS = {
   success: "circle-check",
@@ -236,9 +263,6 @@ function showToast(message, type = "info", duration = 4200) {
   }, duration);
 }
 
-// =========================================================
-// ALERT IN PAGE
-// =========================================================
 const ALERT_ICONS = { success:"circle-check", error:"circle-x", info:"info", warning:"triangle-alert" };
 
 function showAlert(containerId, message, type = "info", autoDismiss = 0) {
@@ -255,9 +279,6 @@ function showAlert(containerId, message, type = "info", autoDismiss = 0) {
   if (autoDismiss > 0) setTimeout(() => { el.innerHTML = ""; }, autoDismiss);
 }
 
-// =========================================================
-// FORMATTERS & BADGE HELPERS
-// =========================================================
 function formatDate(isoString) {
   if (!isoString) return "—";
   try {
@@ -275,7 +296,7 @@ function getSimilarityBadge(percent) {
   if (pct >= 65) cls = "badge-green";
   else if (pct >= 50) cls = "badge-gold";
   else if (pct >= 40) cls = "badge-yellow";
-  return `<span class="badge ${cls}">${pct.toFixed(1)}%</span>`;
+  return `<span class="badge ${cls} numeric-value">${pct.toFixed(1)}%</span>`;
 }
 
 function getStatusBadge(status) {
@@ -298,9 +319,6 @@ function getStatusBadge(status) {
   return `<span class="badge badge-gold">${status}</span>`;
 }
 
-// =========================================================
-// GENERIC API FETCH
-// =========================================================
 async function apiFetch(url, options = {}) {
   const res  = await fetch(API_BASE + url, options);
   const data = await res.json().catch(() => ({}));

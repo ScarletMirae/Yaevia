@@ -31,7 +31,37 @@ def allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-@verify_bp.route("/api/verify", methods=["POST"])
+@verify_bp.route("/api/verify/validate-identity", methods=["GET", "POST"], strict_slashes=False)
+def api_validate_identity():
+    """
+    POST /api/verify/validate-identity
+    Memvalidasi apakah pasangan Nama Mahasiswa dan NIM yang diinput user
+    terdaftar secara sah pada database dataset Yaevia (strict pair matching).
+    """
+    try:
+        data = request.get_json(silent=True) or request.form or {}
+        name = str(data.get("student_name") or data.get("name") or "").strip()
+        nim  = str(data.get("student_id") or data.get("student_nim") or data.get("nim") or "").strip()
+
+        if not name or not nim:
+            return jsonify({"success": True, "valid": False}), 200
+
+        conn = get_connection()
+        count = conn.execute("""
+            SELECT COUNT(*) FROM dataset
+            WHERE LOWER(TRIM(student_name)) = ? AND LOWER(TRIM(student_id)) = ?
+        """, (name.lower(), nim.lower())).fetchone()[0]
+        conn.close()
+
+        return jsonify({"success": True, "valid": bool(count > 0)}), 200
+
+    except Exception as e:
+        logger.error(f"Validation error: {e}")
+        return jsonify({"success": False, "valid": False, "message": str(e)}), 500
+
+
+
+@verify_bp.route("/api/verify", methods=["POST"], strict_slashes=False)
 def api_verify():
     """
     POST /api/verify
@@ -81,10 +111,14 @@ def api_verify():
     query_path    = os.path.join(query_dir, unique_name)
     file.save(query_path)
 
+    # Ambil ground truth jika disediakan (misal untuk batch evaluation / holdout testing)
+    ground_truth_name = request.form.get("ground_truth_name") or request.form.get("ground_truth") or request.form.get("student_name")
+    ground_truth_nim  = request.form.get("ground_truth_nim") or request.form.get("student_id")
+
     try:
         # --- Step 1: Preprocessing citra ---
         # preprocess_image() menerima path file dan melakukan:
-        # grayscale -> thresholding Otsu -> noise removal -> resize 128x128
+        # grayscale -> blur -> thresholding Otsu -> noise removal -> ROI -> letterbox 256x256
         processed_img = preprocess_image(query_path)
 
         # --- Step 2: Ekstraksi Fitur HOG ---
@@ -92,9 +126,11 @@ def api_verify():
 
         # --- Step 3: Klasifikasi KNN + Euclidean Distance ---
         result = verify_image(
-            feature_vector = feature_vector,
-            query_filename = file.filename,
-            query_path     = query_path,
+            feature_vector    = feature_vector,
+            query_filename    = file.filename,
+            query_path        = query_path,
+            ground_truth_name = ground_truth_name,
+            ground_truth_nim  = ground_truth_nim,
         )
 
         if not result.get("success"):
@@ -128,7 +164,8 @@ def api_verify_history():
             SELECT id, query_filename, predicted_name,
                    similarity_percent, euclidean_distance, verification_status, similarity_status,
                    top_matches_json, model_version, feature_vector_length, knn_k,
-                   analysis_time, verification_timestamp
+                   analysis_time, ground_truth_name, ground_truth_nim, is_correct,
+                   verification_timestamp
             FROM verifications
             ORDER BY id DESC
             LIMIT ? OFFSET ?

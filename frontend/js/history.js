@@ -48,18 +48,27 @@ function renderTable(rows) {
   }
 
   tbody.innerHTML = rows.map((row, i) => {
-    const fname = (row.query_filename || "").length > 22
-      ? row.query_filename.substring(0, 22) + "…"
-      : row.query_filename;
+    const isCorrect = row.is_correct === 1;
+    const hasGt = row.ground_truth_name && String(row.ground_truth_name).trim() !== "";
+    const matchBadge = !hasGt 
+      ? `<span class="badge-uncertain" style="padding:2px 8px;font-size:0.75rem;">— Unlabeled</span>`
+      : isCorrect
+        ? `<span class="badge-green" style="font-size:0.75rem;padding:2px 8px;">✓ SESUAI</span>`
+        : `<span class="badge-red" style="font-size:0.75rem;padding:2px 8px;">✕ TIDAK SESUAI</span>`;
+
+    const actualDisplay = hasGt 
+      ? `<div style="font-weight:700;color:var(--text);font-size:0.83rem;">${row.ground_truth_name}</div><div style="font-size:0.72rem;color:var(--text-muted);">NIM: ${row.ground_truth_nim || '-'}</div>`
+      : `<span style="color:var(--text-muted);font-style:italic;">Belum diisi</span>`;
+
     return `
     <tr>
       <td style="font-weight:700;color:var(--text);">${currentPage * PAGE_SIZE + i + 1}</td>
       <td style="font-size:0.78rem;color:var(--text-muted);">${formatDate(row.verification_timestamp)}</td>
-      <td style="font-size:0.8rem;" title="${row.query_filename}">${fname}</td>
+      <td>${actualDisplay}</td>
       <td style="font-weight:600;color:var(--text);">${row.predicted_name || "—"}</td>
       <td>${getSimilarityBadge(row.similarity_percent)}</td>
-      <td>${getStatusBadge(row.verification_status)}</td>
-      <td style="font-size:0.73rem;color:var(--text-muted);">${row.model_version ? row.model_version.substring(0, 14) : "—"}</td>
+      <td>${matchBadge}</td>
+      <td>${getStatusBadge(row.similarity_status || row.verification_status)}</td>
       <td style="display:flex;gap:0.3rem;">
         <button class="btn btn-secondary btn-sm" onclick="showDetail(${row.id})" title="Detail">
           <i data-lucide="eye"></i>
@@ -121,7 +130,7 @@ function applyFilters() {
   const nameQ   = document.getElementById("filter-name").value.toLowerCase();
   const statusQ = document.getElementById("filter-status").value;
   const filtered = allHistory.filter(r => {
-    const matchName   = !nameQ   || (r.predicted_name || "").toLowerCase().includes(nameQ);
+    const matchName   = !nameQ   || (r.predicted_name || "").toLowerCase().includes(nameQ) || (r.ground_truth_name || "").toLowerCase().includes(nameQ);
     const matchStatus = !statusQ || (r.verification_status || "").includes(statusQ);
     return matchName && matchStatus;
   });
@@ -143,16 +152,23 @@ async function showDetail(id) {
     if (!data.success) throw new Error(data.message || "Gagal");
     const r = data.data;
     const matches = Array.isArray(r.top_matches) ? r.top_matches : [];
+    const isCorrect = r.is_correct === 1;
+    const matchStatusText = r.ground_truth_name 
+      ? (isCorrect ? '<span class="badge-green">✓ IDENTIFIKASI SESUAI</span>' : '<span class="badge-red">✕ IDENTIFIKASI TIDAK SESUAI</span>')
+      : '<span class="badge-uncertain">— Unlabeled</span>';
 
     content.innerHTML = `
       <table style="width:100%;font-size:0.86rem;border-collapse:collapse;">
-        ${detailRow("ID", "#" + r.id, "hash")}
-        ${detailRow("Waktu", formatDate(r.verification_timestamp), "clock")}
-        ${detailRow("File", `<span style="word-break:break-all;">${r.query_filename}</span>`, "file-image")}
-        ${detailRow("Prediksi", `<strong style="color:var(--text);font-size:0.95rem;">${r.predicted_name || "—"}</strong>`, "user-check")}
-        ${detailRow("Similarity", `${getSimilarityBadge(r.similarity_percent)} <span style="font-size:0.78rem;color:var(--text-muted);">(${r.similarity_status || "—"})</span>`, "star")}
+        ${detailRow("ID Record", "#" + r.id, "hash")}
+        ${detailRow("Waktu Verifikasi", formatDate(r.verification_timestamp), "clock")}
+        ${detailRow("File Gambar", `<span style="word-break:break-all;">${r.query_filename}</span>`, "file-image")}
+        ${detailRow("Identitas Asli", `<strong style="color:var(--purple);font-size:0.95rem;">${r.ground_truth_name || "—"}</strong> (${r.ground_truth_nim || 'NIM -'})`, "user-check")}
+        ${detailRow("Hasil Prediksi KNN", `<strong style="color:var(--text);font-size:0.95rem;">${r.predicted_name || "—"}</strong>`, "bot")}
+        ${detailRow("Evaluasi Match", matchStatusText, "check-square")}
+        ${detailRow("Skor Similarity", `${getSimilarityBadge(r.similarity_percent)} <span style="font-size:0.78rem;color:var(--text-muted);">(${r.similarity_status || "—"})</span>`, "star")}
+        ${detailRow("Euclidean Distance", r.euclidean_distance ? parseFloat(r.euclidean_distance).toFixed(4) : "—", "ruler")}
         ${detailRow("Status Verifikasi", getStatusBadge(r.verification_status), "shield")}
-        ${detailRow("Model", `<span style="font-size:0.78rem;">${r.model_version || "—"}</span>`, "cpu")}
+        ${detailRow("Model Version", `<span style="font-size:0.78rem;">${r.model_version || "—"}</span>`, "cpu")}
       </table>
 
       ${matches.length ? `
@@ -227,15 +243,18 @@ async function deleteRecord(id, closeAfter = false) {
 function exportCSV() {
   if (!allHistory.length) { showToast("Tidak ada data untuk diexport", "warning"); return; }
 
-  const headers = ["ID", "Waktu Verifikasi", "File", "Prediksi Penulis", "Similarity (%)", "Status", "Model"];
+  const headers = ["ID", "Waktu Verifikasi", "File", "Identitas Asli Nama", "Identitas Asli NIM", "Prediksi KNN", "Is Correct", "Similarity (%)", "Euclidean Distance", "Status"];
   const rows = allHistory.map(r => [
     r.id,
     r.verification_timestamp,
     r.query_filename,
+    r.ground_truth_name || "",
+    r.ground_truth_nim  || "",
     r.predicted_name    || "",
+    r.is_correct !== undefined && r.is_correct !== null ? (r.is_correct === 1 ? "1" : "0") : "",
     r.similarity_percent ? parseFloat(r.similarity_percent).toFixed(2) : "",
+    r.euclidean_distance ? parseFloat(r.euclidean_distance).toFixed(4) : "",
     r.verification_status || "",
-    r.model_version    || "",
   ]);
 
   const csvContent = [headers, ...rows]

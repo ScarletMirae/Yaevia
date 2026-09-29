@@ -201,6 +201,34 @@ def dataset_stats():
 
 
 # ==============================================================================
+# GET /api/dataset/students
+# ==============================================================================
+@dataset_bp.route("/students", methods=["GET"])
+def get_dataset_students():
+    """
+    Mengambil daftar mahasiswa unik (Nama & NIM) dari dataset sebagai sumber data dropdown.
+    """
+    try:
+        conn = get_connection()
+        rows = conn.execute("""
+            SELECT DISTINCT student_name, student_id
+            FROM dataset
+            WHERE student_name IS NOT NULL AND student_name != ''
+            ORDER BY student_name ASC
+        """).fetchall()
+        conn.close()
+
+        students = [
+            {"student_name": r["student_name"], "student_id": r["student_id"] or ""}
+            for r in rows
+        ]
+        return jsonify({"success": True, "students": students, "total": len(students)}), 200
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+
+# ==============================================================================
 # DELETE /api/dataset/<id>
 # ==============================================================================
 @dataset_bp.route("/<int:dataset_id>", methods=["DELETE"])

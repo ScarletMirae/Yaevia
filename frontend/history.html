@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="Riwayat hasil verifikasi tulisan tangan mahasiswa pada laporan praktikum." />
   <title>Riwayat Verifikasi — Verifikasi Tulisan Tangan HOG+KNN</title>
+  <script>
+    (function() {
+      var saved = localStorage.getItem('yaevia-theme');
+      if (saved) { document.documentElement.dataset.theme = saved; }
+      else { document.documentElement.dataset.theme = 'light'; }
+    })();
+  </script>
   <link rel="stylesheet" href="css/style.css" />
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 </head>
@@ -103,11 +110,11 @@
               <tr>
                 <th>#</th>
                 <th><i data-lucide="clock" style="width:12px;height:12px;vertical-align:-2px;"></i> Waktu</th>
-                <th><i data-lucide="file-image" style="width:12px;height:12px;vertical-align:-2px;"></i> File</th>
-                <th><i data-lucide="user" style="width:12px;height:12px;vertical-align:-2px;"></i> Prediksi Penulis</th>
+                <th><i data-lucide="user-check" style="width:12px;height:12px;vertical-align:-2px;"></i> Identitas Asli</th>
+                <th><i data-lucide="bot" style="width:12px;height:12px;vertical-align:-2px;"></i> Hasil Prediksi KNN</th>
                 <th><i data-lucide="star" style="width:12px;height:12px;vertical-align:-2px;"></i> Similarity</th>
-                <th><i data-lucide="shield" style="width:12px;height:12px;vertical-align:-2px;"></i> Status</th>
-                <th><i data-lucide="cpu" style="width:12px;height:12px;vertical-align:-2px;"></i> Model</th>
+                <th><i data-lucide="check-square" style="width:12px;height:12px;vertical-align:-2px;"></i> Evaluasi Match</th>
+                <th><i data-lucide="shield" style="width:12px;height:12px;vertical-align:-2px;"></i> Status Kemiripan</th>
                 <th>Aksi</th>
               </tr>
             </thead>

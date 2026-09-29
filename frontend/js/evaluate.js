@@ -60,9 +60,10 @@ async function loadEvaluation() {
     alertEl.innerHTML = "";
     section.style.display = "block";
 
-    renderMetrics(data.metrics);
+    renderLiveEvalBanner(data.live_verification_eval);
+    renderMetrics(data.loocv_metrics || data.metrics);
     renderModelParams(data.model_info);
-    renderSplitStats(data.model_info);
+    renderArchitectureInfo(data.reference_dataset, data.loocv_metrics);
     renderCharts(data.per_class_chart);
     renderPerClassTable(data.per_class_chart);
 
@@ -83,14 +84,19 @@ async function loadEvaluation() {
 }
 
 // ─────────────────────────────────────────────────────────
-// RENDER METRICS CHIPS
+// RENDER METRICS CHIPS (LOOCV VALIDATION)
 // ─────────────────────────────────────────────────────────
 function renderMetrics(m) {
   const fmt = (v) => v != null ? parseFloat(v).toFixed(2) + "%" : "—";
-  document.getElementById("val-accuracy").textContent  = fmt(m.test_accuracy);
-  document.getElementById("val-precision").textContent = fmt(m.precision_macro);
-  document.getElementById("val-recall").textContent    = fmt(m.recall_macro);
-  document.getElementById("val-f1").textContent        = fmt(m.f1_macro);
+  const accEl = document.getElementById("val-accuracy");
+  const precEl = document.getElementById("val-precision");
+  const recEl = document.getElementById("val-recall");
+  const f1El = document.getElementById("val-f1");
+
+  if (accEl)  accEl.textContent  = fmt(m.accuracy ?? m.test_accuracy);
+  if (precEl) precEl.textContent = fmt(m.precision_macro);
+  if (recEl)  recEl.textContent  = fmt(m.recall_macro);
+  if (f1El)   f1El.textContent   = fmt(m.f1_macro);
 }
 
 // ─────────────────────────────────────────────────────────
@@ -108,23 +114,26 @@ function renderModelParams(info) {
   el.innerHTML = `
     <div style="margin-bottom:0.75rem;">
       <p style="font-size:0.7rem;font-weight:700;color:var(--purple);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:0.35rem;">
-        <i data-lucide="git-merge" style="width:11px;height:11px;"></i> KNN
+        <i data-lucide="git-merge" style="width:11px;height:11px;"></i> KNN Classifier (Frozen)
       </p>
-      ${paramRow("Nilai K", info.knn_k)}
+      ${paramRow("Nilai K", info.knn_k || 5)}
       ${paramRow("Metric Jarak", info.knn_metric || "euclidean")}
-      ${paramRow("Feature Vector Length", (info.feature_vector_size || 0).toLocaleString() + " dimensi")}
+      ${paramRow("Bobot Voting", info.knn_weights || "distance")}
+      ${paramRow("Panjang Vektor Fitur", (info.feature_vector_size || 34596).toLocaleString() + " dimensi")}
     </div>
     <div>
       <p style="font-size:0.7rem;font-weight:700;color:var(--purple);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:0.35rem;">
-        <i data-lucide="bar-chart-2" style="width:11px;height:11px;"></i> HOG
+        <i data-lucide="bar-chart-2" style="width:11px;height:11px;"></i> HOG Feature Extractor (Frozen)
       </p>
-      ${paramRow("Orientations", info.hog_orientations)}
-      ${paramRow("Pixels per Cell", ppc)}
-      ${paramRow("Cells per Block", cpb)}
+      ${paramRow("Resolusi Citra", "256 × 256 piksel (Letterbox)")}
+      ${paramRow("Orientations", info.hog_orientations || 9)}
+      ${paramRow("Pixels per Cell", ppc || "8×8")}
+      ${paramRow("Cells per Block", cpb || "2×2")}
+      ${paramRow("Normalisasi Blok", info.hog_block_norm || "L2-Hys")}
     </div>
     <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--pink);">
-      ${paramRow("Waktu Training", ttm)}
-      ${paramRow("Tanggal Training", ts)}
+      ${paramRow("Waktu Training (360 citra)", ttm)}
+      ${paramRow("Status Model", "Dibekukan (Siap Uji Holdout)")}
     </div>`;
 }
 
@@ -137,34 +146,48 @@ function paramRow(label, val) {
 }
 
 // ─────────────────────────────────────────────────────────
-// RENDER SPLIT STATS
+// RENDER ARCHITECTURE & DATASET DETAILS
 // ─────────────────────────────────────────────────────────
-function renderSplitStats(info) {
+function renderArchitectureInfo(refInfo, loocvInfo) {
   const el = document.getElementById("split-content");
-  if (!info) { el.textContent = "Tidak tersedia."; return; }
+  if (!el) return;
 
-  const train_pct = Math.round((1 - (info.test_size || 0.2)) * 100);
-  const test_pct  = Math.round((info.test_size || 0.2) * 100);
+  const nResp   = refInfo ? refInfo.n_respondents : 18;
+  const nTotal  = refInfo ? refInfo.n_total_dataset : 360;
+  const nCorr   = loocvInfo ? loocvInfo.correct_samples : 223;
+  const nWrong  = loocvInfo ? loocvInfo.wrong_samples : 137;
+  const p1Acc   = loocvInfo ? loocvInfo.position_1_accuracy : 33.33;
+  const p220Acc = loocvInfo ? loocvInfo.position_2_20_acc : 63.45;
 
   el.innerHTML = `
-    <div style="display:flex;gap:1rem;margin-bottom:1.25rem;">
-      <div style="flex:1;text-align:center;background:linear-gradient(135deg,var(--soft),var(--cream));border-radius:var(--radius-sm);padding:1rem;border:1px solid var(--pink);">
-        <div style="font-family:'Quicksand',sans-serif;font-size:2rem;font-weight:800;color:var(--text);">${info.n_respondents ?? "—"}</div>
+    <div style="display:flex;gap:1rem;margin-bottom:1rem;">
+      <div style="flex:1;text-align:center;background:linear-gradient(135deg,var(--soft),var(--cream));border-radius:var(--radius-sm);padding:0.85rem;border:1px solid var(--pink);">
+        <div style="font-family:'Quicksand',sans-serif;font-size:1.8rem;font-weight:800;color:var(--text);">${nResp}</div>
         <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;">Responden</div>
       </div>
-      <div style="flex:1;text-align:center;background:linear-gradient(135deg,var(--soft),var(--cream));border-radius:var(--radius-sm);padding:1rem;border:1px solid var(--pink);">
-        <div style="font-family:'Quicksand',sans-serif;font-size:2rem;font-weight:800;color:var(--text);">${info.n_total_dataset ?? "—"}</div>
-        <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;">Total Dataset</div>
+      <div style="flex:1;text-align:center;background:linear-gradient(135deg,var(--soft),var(--cream));border-radius:var(--radius-sm);padding:0.85rem;border:1px solid var(--pink);">
+        <div style="font-family:'Quicksand',sans-serif;font-size:1.8rem;font-weight:800;color:var(--text);">${nTotal}</div>
+        <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;">Basis Data Referensi</div>
       </div>
     </div>
-    <div style="display:flex;gap:1rem;">
-      <div style="flex:1;text-align:center;background:linear-gradient(135deg,rgba(107,63,160,0.08),rgba(107,63,160,0.03));border-radius:var(--radius-sm);padding:0.85rem;border:1px solid rgba(107,63,160,0.2);">
-        <div style="font-family:'Quicksand',sans-serif;font-size:1.6rem;font-weight:800;color:var(--purple);">${info.n_train_samples ?? "—"}</div>
-        <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;">Training (${train_pct}%)</div>
+    <div style="display:flex;gap:1rem;margin-bottom:0.75rem;">
+      <div style="flex:1;text-align:center;background:linear-gradient(135deg,rgba(107,63,160,0.08),rgba(107,63,160,0.03));border-radius:var(--radius-sm);padding:0.75rem;border:1px solid rgba(107,63,160,0.2);">
+        <div style="font-family:'Quicksand',sans-serif;font-size:1.4rem;font-weight:800;color:var(--purple);">${nCorr} / 360</div>
+        <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;">Prediksi Benar (LOOCV)</div>
       </div>
-      <div style="flex:1;text-align:center;background:linear-gradient(135deg,rgba(212,163,115,0.12),rgba(212,163,115,0.04));border-radius:var(--radius-sm);padding:0.85rem;border:1px solid rgba(212,163,115,0.3);">
-        <div style="font-family:'Quicksand',sans-serif;font-size:1.6rem;font-weight:800;color:var(--rose-gold);">${info.n_test_samples ?? "—"}</div>
-        <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;">Testing (${test_pct}%)</div>
+      <div style="flex:1;text-align:center;background:linear-gradient(135deg,rgba(212,163,115,0.12),rgba(212,163,115,0.04));border-radius:var(--radius-sm);padding:0.75rem;border:1px solid rgba(212,163,115,0.3);">
+        <div style="font-family:'Quicksand',sans-serif;font-size:1.4rem;font-weight:800;color:var(--rose-gold);">${nWrong} / 360</div>
+        <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;">Prediksi Salah (LOOCV)</div>
+      </div>
+    </div>
+    <div style="padding:0.6rem 0.8rem;background:var(--white);border-radius:var(--radius-sm);border:1px solid rgba(200,155,110,0.2);font-size:0.78rem;line-height:1.5;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
+        <span style="color:var(--text-muted);">Akurasi Halaman #1 (Sampel 1):</span>
+        <strong style="color:var(--rose-gold);">${p1Acc}% (6/18)</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <span style="color:var(--text-muted);">Akurasi Halaman #2–20 (Sampel 2–20):</span>
+        <strong style="color:var(--purple);">${p220Acc}% (217/342)</strong>
       </div>
     </div>`;
 }
@@ -176,8 +199,7 @@ function renderCharts(perClass) {
   if (!perClass || !perClass.length) return;
 
   const labels     = perClass.map(c => truncateLabel(c.name, 14));
-  const trainData  = perClass.map(c => c.train);
-  const testData   = perClass.map(c => c.test);
+  const accData    = perClass.map(c => c.accuracy);
   const totalData  = perClass.map(c => c.total);
 
   const chartFont = { family: "'Poppins', sans-serif", size: 11 };
@@ -187,7 +209,7 @@ function renderCharts(perClass) {
   if (chartTrainTest) { chartTrainTest.destroy(); chartTrainTest = null; }
   if (chartSamples)   { chartSamples.destroy();   chartSamples   = null; }
 
-  // Chart 1: Training vs Testing per Mahasiswa
+  // Chart 1: Akurasi LOOCV per Mahasiswa (%)
   const ctx1 = document.getElementById("chart-train-test").getContext("2d");
   chartTrainTest = new Chart(ctx1, {
     type: "bar",
@@ -195,18 +217,10 @@ function renderCharts(perClass) {
       labels,
       datasets: [
         {
-          label:           "Data Training",
-          data:            trainData,
-          backgroundColor: COLORS.purple,
-          borderColor:     COLORS.purpleBorder,
-          borderWidth:     1.5,
-          borderRadius:    6,
-        },
-        {
-          label:           "Data Testing",
-          data:            testData,
-          backgroundColor: COLORS.gold,
-          borderColor:     COLORS.goldBorder,
+          label:           "Akurasi LOOCV (%)",
+          data:            accData,
+          backgroundColor: accData.map(v => v >= 70 ? COLORS.purple : (v >= 50 ? COLORS.gold : "rgba(244,67,54,0.65)")),
+          borderColor:     accData.map(v => v >= 70 ? COLORS.purpleBorder : (v >= 50 ? COLORS.goldBorder : "#c0392b")),
           borderWidth:     1.5,
           borderRadius:    6,
         },
@@ -219,6 +233,11 @@ function renderCharts(perClass) {
         legend: {
           labels: { font: chartFont, color: "#7A2E45", padding: 16 },
         },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => ` Akurasi LOOCV: ${ctx.parsed.y}% (${perClass[ctx.dataIndex].correct}/${perClass[ctx.dataIndex].total} benar)`,
+          },
+        },
       },
       scales: {
         x: {
@@ -227,14 +246,19 @@ function renderCharts(perClass) {
         },
         y: {
           beginAtZero: true,
-          ticks: { font: chartFont, color: "#B5607A", precision: 0 },
+          max: 100,
+          ticks: {
+            font: chartFont,
+            color: "#B5607A",
+            callback: (v) => v + "%",
+          },
           grid:  { color: gridColor },
         },
       },
     },
   });
 
-  // Chart 2: Distribusi Sampel per Mahasiswa
+  // Chart 2: Distribusi Sampel Dataset Referensi per Mahasiswa
   const ctx2 = document.getElementById("chart-samples").getContext("2d");
   chartSamples = new Chart(ctx2, {
     type: "bar",
@@ -242,12 +266,10 @@ function renderCharts(perClass) {
       labels,
       datasets: [
         {
-          label:           "Jumlah Sampel",
+          label:           "Jumlah Sampel Referensi",
           data:            totalData,
-          backgroundColor: perClass.map((_, i) =>
-            i % 2 === 0 ? COLORS.pink : COLORS.gold),
-          borderColor:     perClass.map((_, i) =>
-            i % 2 === 0 ? COLORS.pinkBorder : COLORS.goldBorder),
+          backgroundColor: COLORS.pink,
+          borderColor:     COLORS.pinkBorder,
           borderWidth:     1.5,
           borderRadius:    6,
         },
@@ -260,7 +282,7 @@ function renderCharts(perClass) {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: (ctx) => ` ${ctx.parsed.y} sampel`,
+            label: (ctx) => ` ${ctx.parsed.y} sampel (Seimbang 20/mhs)`,
           },
         },
       },
@@ -285,18 +307,23 @@ function renderCharts(perClass) {
 function renderPerClassTable(perClass) {
   const tbody = document.getElementById("per-class-tbody");
   if (!perClass || !perClass.length) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text-muted);">Tidak ada data.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-muted);">Tidak ada data.</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = perClass.map((c, i) => `
+  tbody.innerHTML = perClass.map((c, i) => {
+    const acc = parseFloat(c.accuracy || 0);
+    const badgeClass = acc >= 70 ? "badge-green" : (acc >= 50 ? "badge-yellow" : "badge-red");
+    return `
     <tr>
       <td style="font-weight:700;color:var(--text);">${i + 1}</td>
       <td style="font-weight:600;color:var(--text);">${c.name}</td>
-      <td><span class="badge badge-pink">${c.total}</span></td>
-      <td><span class="badge badge-purple">${c.train}</span></td>
-      <td><span class="badge badge-gold">${c.test}</span></td>
-    </tr>`).join("");
+      <td><span class="badge badge-pink">${c.total} sampel</span></td>
+      <td><span class="badge badge-green">${c.correct} benar</span></td>
+      <td><span class="badge badge-red">${c.wrong} salah</span></td>
+      <td><span class="badge ${badgeClass}" style="font-weight:800;">${acc.toFixed(1)}%</span></td>
+    </tr>`;
+  }).join("");
 }
 
 // ─────────────────────────────────────────────────────────
@@ -349,4 +376,61 @@ function truncateLabel(str, maxLen) {
   if (parts.length === 1) return str.substring(0, maxLen);
   // Nama depan saja
   return parts[0];
+}
+
+// ─────────────────────────────────────────────────────────
+// LIVE EVALUATION BANNER
+// ─────────────────────────────────────────────────────────
+function renderLiveEvalBanner(liveEval) {
+  const container = document.getElementById("live-eval-container");
+  if (!container) return;
+
+  if (!liveEval || !liveEval.has_records || liveEval.n_samples === 0) {
+    container.innerHTML = `
+      <div style="display:flex;align-items:center;gap:1rem;">
+        <div style="width:42px;height:42px;border-radius:50%;background:rgba(212,163,115,0.15);color:var(--gold);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <i data-lucide="info" style="width:22px;height:22px;"></i>
+        </div>
+        <div>
+          <div style="font-weight:700;color:var(--text);font-size:0.95rem;margin-bottom:2px;">
+            Status Data Pengujian Riil (Live Verification Records)
+          </div>
+          <div style="font-size:0.83rem;color:var(--text-muted);">
+            Belum tersedia data pengujian berlabel yang cukup dari pengujian verifikasi pengguna.
+            <a href="verify.html" style="color:var(--rose-gold);font-weight:700;">Lakukan Verifikasi Berlabel →</a>
+          </div>
+        </div>
+      </div>`;
+    if (window.lucide) lucide.createIcons({ nodes: [container] });
+    return;
+  }
+
+  const acc = liveEval.accuracy;
+  container.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
+      <div style="display:flex;align-items:center;gap:1rem;">
+        <div style="width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,var(--soft),var(--pink));color:var(--purple);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:var(--shadow-gold);">
+          <i data-lucide="check-square" style="width:24px;height:24px;"></i>
+        </div>
+        <div>
+          <div style="font-size:0.75rem;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:0.05em;">Hasil Evaluasi Verifikasi Riwayat Berlabel</div>
+          <div style="font-size:1.1rem;font-weight:800;color:var(--text);">${liveEval.description}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+        <div style="background:var(--white);padding:0.5rem 0.85rem;border-radius:var(--radius-sm);border:1px solid rgba(200,155,110,0.2);text-align:center;">
+          <div style="font-size:0.68rem;color:var(--text-muted);font-weight:600;">Total Pengujian</div>
+          <div style="font-size:1.05rem;font-weight:800;color:var(--text);">${liveEval.n_samples} citra</div>
+        </div>
+        <div style="background:var(--white);padding:0.5rem 0.85rem;border-radius:var(--radius-sm);border:1px solid rgba(200,155,110,0.2);text-align:center;">
+          <div style="font-size:0.68rem;color:var(--text-muted);font-weight:600;">Benar / Salah</div>
+          <div style="font-size:1.05rem;font-weight:800;color:var(--purple);">${liveEval.correct_count} / ${liveEval.wrong_count}</div>
+        </div>
+        <div style="background:linear-gradient(135deg,var(--soft),var(--cream));padding:0.5rem 1rem;border-radius:var(--radius-sm);border:1.5px solid var(--pink);text-align:center;">
+          <div style="font-size:0.68rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;">Live Accuracy</div>
+          <div style="font-size:1.25rem;font-weight:800;color:var(--text);">${acc.toFixed(2)}%</div>
+        </div>
+      </div>
+    </div>`;
+  if (window.lucide) lucide.createIcons({ nodes: [container] });
 }

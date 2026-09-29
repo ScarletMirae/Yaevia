@@ -73,6 +73,9 @@ def init_db():
             feature_vector_length INTEGER,
             knn_k                 INTEGER,
             analysis_time         REAL,
+            ground_truth_name     TEXT,
+            ground_truth_nim      TEXT,
+            is_correct            INTEGER,
             verification_timestamp TEXT NOT NULL
         )
     """)
@@ -132,6 +135,9 @@ def _migrate_columns(cursor, conn):
         ("knn_k",                 "INTEGER"),
         ("analysis_time",         "REAL"),
         ("query_path",            "TEXT NOT NULL DEFAULT ''"),
+        ("ground_truth_name",     "TEXT"),
+        ("ground_truth_nim",      "TEXT"),
+        ("is_correct",            "INTEGER"),
     ]
 
     # Kolom baru untuk model_meta

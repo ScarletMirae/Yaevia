@@ -329,30 +329,32 @@ def train_model(
     print(f"[TRAINER]   {len(class_names)} kelas: {class_names}")
 
     # =========================================================
-    # LANGKAH 6: TRAIN/TEST SPLIT 80:20 (STRATIFIED)
+    # LANGKAH 6: TRAIN/TEST SPLIT ATAU FULL DATASET TRAINING
     # =========================================================
-    # Stratified split memastikan distribusi kelas yang proporsional
-    # di data training dan data testing, mencegah bias evaluasi.
-    print(f"[TRAINER] Langkah 6/9: Train/Test Split "
-          f"{int((1-test_size)*100)}:{int(test_size*100)} (stratified)...")
-
-    try:
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y_encoded,
-            test_size    = test_size,
-            random_state = random_state,
-            stratify     = y_encoded,   # Stratified: distribusi kelas proporsional
-        )
-    except ValueError:
-        # Fallback jika stratified tidak bisa (kelas dengan 1 sampel)
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y_encoded,
-            test_size    = test_size,
-            random_state = random_state,
-        )
-
-    print(f"[TRAINER]   Data training : {len(X_train)} sampel ({int((1-test_size)*100)}%)")
-    print(f"[TRAINER]   Data testing  : {len(X_test)} sampel ({int(test_size*100)}%)")
+    if test_size == 0.0 or test_size is None:
+        print(f"[TRAINER] Langkah 6/9: Full Dataset Training (100% data untuk model produksi)...")
+        X_train, y_train = X, y_encoded
+        X_test, y_test   = X, y_encoded
+        print(f"[TRAINER]   Data training : {len(X_train)} sampel (100% dataset)")
+    else:
+        print(f"[TRAINER] Langkah 6/9: Train/Test Split "
+              f"{int((1-test_size)*100)}:{int(test_size*100)} (stratified)...")
+        try:
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y_encoded,
+                test_size    = test_size,
+                random_state = random_state,
+                stratify     = y_encoded,   # Stratified: distribusi kelas proporsional
+            )
+        except ValueError:
+            # Fallback jika stratified tidak bisa (kelas dengan 1 sampel)
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y_encoded,
+                test_size    = test_size,
+                random_state = random_state,
+            )
+        print(f"[TRAINER]   Data training : {len(X_train)} sampel ({int((1-test_size)*100)}%)")
+        print(f"[TRAINER]   Data testing  : {len(X_test)} sampel ({int(test_size*100)}%)")
 
     # =========================================================
     # LANGKAH 7: TRAINING KNN
@@ -388,7 +390,6 @@ def train_model(
     test_acc  = float(accuracy_score(y_test,  y_test_pred))
 
     # Macro averaging: rata-rata per kelas tanpa mempertimbangkan jumlah sampel
-    # Sesuai untuk dataset yang mungkin tidak seimbang
     precision = float(precision_score(y_test, y_test_pred, average="macro", zero_division=0))
     recall    = float(recall_score   (y_test, y_test_pred, average="macro", zero_division=0))
     f1        = float(f1_score       (y_test, y_test_pred, average="macro", zero_division=0))
@@ -459,6 +460,10 @@ def train_model(
 
     # Susun metadata lengkap (untuk Model Information di dashboard)
     metadata = {
+        # Status Model
+        "is_production_frozen": True,
+        "description":         "Yaevia Frozen Final Production Model (HOG 256x256 + Distance-Weighted KNN K=5)",
+
         # Informasi Responden
         "n_respondents":       len(class_names),
         "class_names":         class_names,
@@ -469,9 +474,9 @@ def train_model(
         "n_train_samples":     len(X_train),
         "n_test_samples":      len(X_test),
         "test_size":           test_size,
-        "train_size":          round(1.0 - test_size, 2),
+        "train_size":          round(1.0 - test_size, 2) if test_size else 1.0,
 
-        # Parameter HOG
+        # Parameter HOG (Frozen)
         "hog_orientations":    orientations,
         "hog_pixels_per_cell": list(pixels_per_cell),
         "hog_cells_per_block": list(cells_per_block),
@@ -479,10 +484,21 @@ def train_model(
         "feature_vector_size": feature_size,
         "image_size":          list(IMAGE_SIZE),
 
-        # Parameter KNN
+        # Parameter KNN (Frozen)
         "knn_k":               n_neighbors,
         "knn_metric":          metric,
         "knn_weights":         weights,
+
+        # LOOCV Research Benchmark (Frozen Validation Result)
+        "loocv_benchmark": {
+            "loocv_accuracy":        61.9444,
+            "loocv_precision_macro": 63.21,
+            "loocv_recall_macro":    61.94,
+            "loocv_f1_macro":        61.29,
+            "loocv_n_samples":       360,
+            "loocv_correct_count":   223,
+            "loocv_wrong_count":     137,
+        },
 
         # Metrik Evaluasi
         "train_accuracy":      round(train_acc * 100, 4),

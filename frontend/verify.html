@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="Verifikasi keaslian tulisan tangan mahasiswa pada laporan praktikum menggunakan KNN dan HOG." />
   <title>Verifikasi — Verifikasi Tulisan Tangan HOG+KNN</title>
+  <script>
+    (function() {
+      var saved = localStorage.getItem('yaevia-theme');
+      if (saved) { document.documentElement.dataset.theme = saved; }
+      else { document.documentElement.dataset.theme = 'light'; }
+    })();
+  </script>
   <link rel="stylesheet" href="css/style.css" />
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 </head>
@@ -75,9 +82,35 @@
             <p id="preview-filename" style="font-size:0.78rem;color:var(--text-muted);margin-top:0.5rem;"></p>
           </div>
 
+          <!-- Ground Truth Form (Input Manual Identitas Pemilik Tulisan) -->
+          <div id="ground-truth-form" class="ground-truth-container">
+            <div style="font-size:0.84rem;font-weight:700;color:var(--text);margin-bottom:0.75rem;display:flex;align-items:center;gap:0.4rem;">
+              <i data-lucide="user-check" style="width:16px;height:16px;color:var(--gold);"></i>
+              Identitas Pemilik Tulisan (Ground Truth)
+            </div>
+            <div class="form-group" style="margin-bottom:0.75rem;">
+              <label class="form-label" for="actual-name-input" style="font-size:0.78rem;">
+                Nama Mahasiswa <span class="required">*</span>
+              </label>
+              <input type="text" class="form-control" id="actual-name-input" placeholder="Ketik Nama Pemilik Tulisan" style="font-size:0.85rem;" oninput="onIdentityInputChanged()" autocomplete="off" required />
+            </div>
+            <div class="form-group" style="margin-bottom:0.75rem;">
+              <label class="form-label" for="actual-nim-input" style="font-size:0.78rem;">
+                NIM Mahasiswa <span class="required">*</span>
+              </label>
+              <input type="text" class="form-control" id="actual-nim-input" placeholder="Ketik NIM Mahasiswa" style="font-size:0.85rem;" oninput="onIdentityInputChanged()" autocomplete="off" required />
+            </div>
+
+            <!-- Identity Status Checker -->
+            <div id="identity-status-checker" style="font-size:0.78rem;font-weight:600;color:var(--text-muted);display:flex;align-items:center;gap:0.35rem;margin-top:0.4rem;">
+              <i data-lucide="info" style="width:14px;height:14px;flex-shrink:0;"></i>
+              <span id="identity-status-text">Masukkan nama dan NIM pemilik tulisan.</span>
+            </div>
+          </div>
+
           <!-- Verify Button -->
           <button class="btn btn-primary btn-block btn-lg" id="verify-btn"
-                  style="margin-top:1.5rem;" onclick="doVerify()" disabled>
+                  style="margin-top:1.25rem;" onclick="doVerify()" disabled>
             <i data-lucide="search"></i>
             <span id="verify-btn-text">Verifikasi Sekarang</span>
           </button>
@@ -96,7 +129,7 @@
             <i data-lucide="scan-search" style="width:30px;height:30px;color:var(--text);stroke-width:1.5;"></i>
           </div>
           <h3 style="color:var(--text-muted);margin-bottom:0.5rem;">Hasil Verifikasi</h3>
-          <p style="font-size:0.84rem;color:var(--text-muted);">Upload gambar tulisan tangan dan klik "Verifikasi Sekarang" untuk melihat hasil identifikasi.</p>
+          <p style="font-size:0.84rem;color:var(--text-muted);">Pilih identitas asli pemilik tulisan, upload gambar, dan klik "Verifikasi Sekarang" untuk melihat hasil identifikasi.</p>
         </div>
 
         <!-- Result Card (hidden until verified) -->
@@ -109,16 +142,15 @@
               Memproses...
             </div>
 
-            <!-- Predicted Name -->
-            <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:0.15rem;margin-top:0.5rem;">Teridentifikasi sebagai:</p>
-            <div class="result-name" id="result-name">—</div>
+            <!-- Dual Identity & Correctness Card -->
+            <div id="dual-identity-card" style="margin-top:1rem;"></div>
 
             <!-- Similarity Score -->
-            <div style="margin:1.5rem 0 1rem;">
+            <div style="margin:1.25rem 0 1rem;">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
                 <span style="font-size:0.8rem;color:var(--text-soft);display:flex;align-items:center;gap:0.4rem;">
                   <i data-lucide="star" style="width:13px;height:13px;color:var(--gold);"></i>
-                  Skor Kemiripan
+                  Skor Kemiripan (Geometric Similarity)
                 </span>
                 <span class="result-score" id="result-score-text">0%</span>
               </div>
@@ -217,7 +249,7 @@
 </style>
 
 
-<script src="js/main.js"></script>
-<script src="js/verify.js"></script>
+<script src="js/main.js?v=2.3"></script>
+<script src="js/verify.js?v=2.3"></script>
 </body>
 </html>

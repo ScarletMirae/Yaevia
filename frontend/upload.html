@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="Upload dataset tulisan tangan mahasiswa dan latih model KNN." />
   <title>Upload & Training — Verifikasi Tulisan Tangan HOG+KNN</title>
+  <script>
+    (function() {
+      var saved = localStorage.getItem('yaevia-theme');
+      if (saved) { document.documentElement.dataset.theme = saved; }
+      else { document.documentElement.dataset.theme = 'light'; }
+    })();
+  </script>
   <link rel="stylesheet" href="css/style.css" />
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 </head>
@@ -267,28 +274,6 @@
 
             <!-- Training Result -->
             <div id="train-result" style="margin-top:1rem;"></div>
-          </div>
-
-          <!-- Dummy Data Generator -->
-          <div class="card animate-fade-up delay-4" style="background:linear-gradient(135deg, var(--cream), rgba(107,63,160,0.05));border-color:rgba(107,63,160,0.15);">
-            <div class="card-title" style="font-size:0.95rem;">
-              <i data-lucide="wand-2"></i>
-              Generate Data Dummy
-            </div>
-            <p style="font-size:0.82rem;color:var(--text-soft);margin-bottom:1rem;line-height:1.6;">
-              Buat <strong>150 gambar sintetis</strong> (30 mahasiswa × 5 sampel) untuk demo dan pengujian sistem.
-            </p>
-            <div class="alert alert-info" style="margin-bottom:1rem;font-size:0.8rem;">
-              <i data-lucide="terminal"></i>
-              <div>
-                Jalankan di terminal:<br>
-                <code style="background:rgba(0,0,0,0.08);padding:2px 6px;border-radius:4px;font-size:0.82rem;">python generate_dummy_data.py</code>
-              </div>
-            </div>
-            <button class="btn btn-outline btn-sm" id="dummy-btn" onclick="showDummyInfo()">
-              <i data-lucide="info"></i>
-              Lihat Instruksi
-            </button>
           </div>
 
         </div>

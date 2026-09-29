@@ -13,8 +13,9 @@ BAB IV — Implementasi Verifikasi:
     3. Bobot voting (Vote Share) dihitung melalui predict_proba() sebagai
        proporsi kontribusi bobot (w = 1/d) pada lingkungan K=5.
     4. Jarak Euclidean minimum (d_min) ke sampel terdekat dari kelas pemenang
-       dikonversi ke Sample Similarity (%) menggunakan formula Cosine/Normalized HOG:
-       similarity(%) = max(0.0, min(100.0, (1 - (d^2 / 450)) * 100))
+       dikonversi ke Sample Similarity (%) menggunakan formula Normalized HOG Space:
+       similarity(%) = max(0.0, min(100.0, (1 - (d^2 / 1922)) * 100))
+       [256x256 HOG: 961 blok L2-Hys, max_dist_sq = 2 x 961 = 1922]
     5. Status kemiripan ditentukan berdasarkan threshold di config.py
     6. Daftar Top Kandidat diurutkan berdasarkan konsensus voting KNN (primer:
        vote_weight desc, sekunder: distance asc).
@@ -51,42 +52,47 @@ from model.trainer import get_latest_model_paths
 logger = logging.getLogger(__name__)
 
 
+EXPECTED_FEATURE_DIM = 34596
+EXPECTED_K = 5
+EXPECTED_METRIC = "euclidean"
+
+
 # ==============================================================================
 # FUNGSI SIMILARITY BERBASIS EUCLIDEAN DISTANCE
 # ==============================================================================
 
-def euclidean_to_similarity(distance: float, max_dist_sq: float = 450.0) -> float:
+def euclidean_to_similarity(distance: float, max_dist_sq: float = None, feature_dim: int = None) -> float:
     """
     BAB IV - Konversi Euclidean Distance ke Similarity Score (Cosine / Normalized HOG Space):
 
     Dasar Metodologi:
-        Pada HOG dengan normalisasi blok L2-Hys (128x128, 8x8 pixels_per_cell, 2x2 cells_per_block),
-        vektor fitur memiliki N_blocks = 225 blok ternormalisasi L2.
-        Kuadrat panjang vektor: ||x||^2 ≈ 225.0.
-
-        Hubungan antara Euclidean Distance (d) dan Cosine Similarity (cos_sim) untuk vektor L2-norm:
-            d^2 = ||x||^2 + ||y||^2 - 2*(x·y) = 225 + 225 - 2*(225 * cos_sim) = 450 * (1 - cos_sim)
-            cos_sim = 1 - (d^2 / 450)
+        Pada HOG 256x256 dengan pixels_per_cell (8,8) dan cells_per_block (2,2),
+        vektor fitur memiliki N_blocks = 31 x 31 = 961 blok ternormalisasi L2-Hys.
+        Kuadrat panjang vektor: ||x||^2 ≈ 961.0.
+        Kuadrat jarak maksimum teoritis (vektor ortogonal): max_dist_sq = 2 * N_blocks = 1922.0.
 
         Formula Similarity (%):
-            similarity(%) = max(0.0, min(100.0, (1 - (distance^2 / 450.0)) * 100))
-
-    Sifat Formula:
-        - distance = 0.00   -> similarity = 100.0% (identik sempurna)
-        - distance ≈ 11.44  -> similarity ≈ 70.9%  (sangat mirip / same writer)
-        - distance ≈ 14.27  -> similarity ≈ 54.8%  (mirip / variasi wajar satu penulis)
-        - distance >= 21.21 -> similarity = 0.0%   (ortogonal / totally dissimilar)
-        - Monoton menurun proporsional terhadap ruang fitur HOG
+            similarity(%) = max(0.0, min(100.0, (1 - (distance^2 / max_dist_sq)) * 100))
 
     Args:
         distance (float): Euclidean Distance antara dua feature vector HOG.
-        max_dist_sq (float): Kuadrat jarak maksimum teoritis (2 * N_blocks = 450.0).
+        max_dist_sq (float, optional): Kuadrat jarak maksimum teoritis (2 * N_blocks).
+        feature_dim (int, optional): Panjang vektor fitur untuk menghitung N_blocks secara dinamis.
 
     Returns:
         float: Similarity Score dalam persentase (0.0 - 100.0).
     """
     if distance <= 0.0:
         return 100.0
+
+    if max_dist_sq is None:
+        if feature_dim is not None and feature_dim > 0:
+            n_blocks = feature_dim / 36.0
+            max_dist_sq = 2.0 * n_blocks
+        else:
+            # Default frozen 256x256 representation (34,596 features / 961 blocks): 2 * 961 = 1922.0
+            max_dist_sq = 1922.0
+
     sim_ratio = 1.0 - (float(distance) ** 2) / float(max_dist_sq)
     return round(float(np.clip(sim_ratio * 100.0, 0.0, 100.0)), 2)
 
@@ -193,8 +199,33 @@ def classify_handwriting(
     - Verification Status: Keputusan verifikasi (TERIDENTIFIKASI / TIDAK PASTI / TIDAK TERIDENTIFIKASI).
     - Similarity Status: Level kemiripan visual (SANGAT MIRIP / MIRIP / KURANG MIRIP / TIDAK MIRIP).
     """
-    # --- Step 1: Siapkan feature vector query ---
+    # --- Step 1: Siapkan feature vector query & validasi defensif ---
     query = np.array(query_feature).reshape(1, -1)
+
+    # Validasi dimensi feature vector
+    if query.shape[1] != EXPECTED_FEATURE_DIM:
+        raise ValueError(
+            f"Dimensi feature vector query tidak valid: diharapkan {EXPECTED_FEATURE_DIM}, "
+            f"tetapi diterima {query.shape[1]}. Pastikan gambar dipreproses pada resolusi 256x256."
+        )
+
+    if X_train is not None and X_train.shape[1] != EXPECTED_FEATURE_DIM:
+        raise ValueError(
+            f"Dimensi feature vector X_train tidak valid: diharapkan {EXPECTED_FEATURE_DIM}, "
+            f"tetapi ditemukan {X_train.shape[1]}."
+        )
+
+    if hasattr(knn_model, "n_neighbors") and knn_model.n_neighbors != EXPECTED_K:
+        raise ValueError(
+            f"Konfigurasi KNN K tidak valid: diharapkan K={EXPECTED_K}, "
+            f"tetapi model memiliki K={knn_model.n_neighbors}."
+        )
+
+    if hasattr(knn_model, "metric") and knn_model.metric != EXPECTED_METRIC:
+        raise ValueError(
+            f"Metrik KNN tidak valid: diharapkan '{EXPECTED_METRIC}', "
+            f"tetapi model menggunakan '{knn_model.metric}'."
+        )
 
     # --- Step 2: Prediksi kelas dengan KNN (voting mayoritas berbobot jarak) ---
     predicted_label = knn_model.predict(query)[0]
@@ -362,6 +393,8 @@ def verify_image(
     model_version: str = None,
     query_filename: str = "unknown",
     query_path: str = "",
+    ground_truth_name: str = None,
+    ground_truth_nim: str = None,
 ) -> dict:
     """
     BAB IV - Fungsi Utama Verifikasi Gambar:
@@ -373,6 +406,8 @@ def verify_image(
         model_version: Identifier versi model (optional, untuk logging DB).
         query_filename: Nama file gambar asli.
         query_path: Path lengkap file gambar.
+        ground_truth_name: Nama label sebenarnya (ground truth) jika diketahui.
+        ground_truth_nim: NIM label sebenarnya jika diketahui.
 
     Returns:
         dict: Hasil verifikasi dengan semua field yang diperlukan frontend.
@@ -402,6 +437,17 @@ def verify_image(
     result["analysis_time_seconds"] = analysis_time
     result["feature_vector_length"] = len(feature_vector)
 
+    # Hitung is_correct jika ground_truth_name tersedia
+    is_correct = None
+    if ground_truth_name is not None and str(ground_truth_name).strip() != "":
+        pred_clean = str(result["predicted_name"]).strip().lower()
+        gt_clean = str(ground_truth_name).strip().lower()
+        is_correct = 1 if pred_clean == gt_clean else 0
+
+    result["ground_truth_name"] = ground_truth_name
+    result["ground_truth_nim"]  = ground_truth_nim
+    result["is_correct"]        = is_correct
+
     # Konversi top_matches ke JSON string untuk database
     top_matches_json = json.dumps(result["top_matches"], ensure_ascii=False)
 
@@ -414,8 +460,9 @@ def verify_image(
                 query_filename, query_path, predicted_name,
                 similarity_percent, euclidean_distance, verification_status, similarity_status,
                 top_matches_json, model_version, feature_vector_length, knn_k,
-                analysis_time, verification_timestamp
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,datetime('now','localtime'))
+                analysis_time, ground_truth_name, ground_truth_nim, is_correct,
+                verification_timestamp
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now','localtime'))
         """, (
             query_filename,
             query_path,
@@ -429,6 +476,9 @@ def verify_image(
             result["feature_vector_length"],
             result["k_neighbors"],
             analysis_time,
+            ground_truth_name,
+            ground_truth_nim,
+            is_correct,
         ))
         result["verification_id"] = cur.lastrowid
         conn.commit()

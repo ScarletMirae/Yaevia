@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="Evaluasi model KNN — Accuracy, Precision, Recall, F1 Score, Confusion Matrix." />
   <title>Evaluasi Model — Verifikasi Tulisan Tangan HOG+KNN</title>
+  <script>
+    (function() {
+      var saved = localStorage.getItem('yaevia-theme');
+      if (saved) { document.documentElement.dataset.theme = saved; }
+      else { document.documentElement.dataset.theme = 'light'; }
+    })();
+  </script>
   <link rel="stylesheet" href="css/style.css" />
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -40,10 +47,10 @@
       <div class="page-header animate-fade-up">
         <h1>
           <div class="page-icon"><img src="images/icons/evaluasi.png" alt="" class="page-icon-img"></div>
-          Evaluasi Model KNN
+          Evaluasi Model &amp; Validasi Internal
         </h1>
         <div class="wavy-line"></div>
-        <p>Metrik evaluasi model: Accuracy, Precision, Recall, F1 Score, distribusi dataset, dan Confusion Matrix.</p>
+        <p>Hasil validasi internal model menggunakan <strong>Leave-One-Out Cross-Validation (LOOCV)</strong> bebas kebocoran data, statistik dataset referensi produksi, dan Confusion Matrix.</p>
       </div>
 
       <div id="no-model-alert"></div>
@@ -51,47 +58,50 @@
       <!-- METRICS CARDS -->
       <section id="metrics-section" style="display:none;">
 
+        <!-- Live Verification Records Banner -->
+        <div id="live-eval-container" class="card animate-fade-up" style="margin-bottom:1.5rem;padding:1.25rem;"></div>
+
         <!-- 4 Metric Chips -->
         <div class="stat-row animate-fade-up delay-1" id="metrics-chips">
           <div class="stat-chip">
             <div class="stat-chip-icon"><i data-lucide="target"></i></div>
-            <div class="stat-chip-value" id="val-accuracy">—</div>
-            <div class="stat-chip-label">Accuracy</div>
+            <div class="stat-chip-value" id="val-accuracy">61.94%</div>
+            <div class="stat-chip-label">LOOCV Accuracy</div>
           </div>
           <div class="stat-chip">
             <div class="stat-chip-icon"><i data-lucide="crosshair"></i></div>
-            <div class="stat-chip-value" id="val-precision">—</div>
-            <div class="stat-chip-label">Precision (Macro)</div>
+            <div class="stat-chip-value" id="val-precision">63.21%</div>
+            <div class="stat-chip-label">Macro Precision</div>
           </div>
           <div class="stat-chip">
             <div class="stat-chip-icon"><i data-lucide="zap"></i></div>
-            <div class="stat-chip-value" id="val-recall">—</div>
-            <div class="stat-chip-label">Recall (Macro)</div>
+            <div class="stat-chip-value" id="val-recall">61.94%</div>
+            <div class="stat-chip-label">Macro Recall</div>
           </div>
           <div class="stat-chip">
             <div class="stat-chip-icon"><i data-lucide="award"></i></div>
-            <div class="stat-chip-value" id="val-f1">—</div>
-            <div class="stat-chip-label">F1 Score (Macro)</div>
+            <div class="stat-chip-value" id="val-f1">61.29%</div>
+            <div class="stat-chip-label">Macro F1-Score</div>
           </div>
         </div>
 
-        <!-- Model Info + Split Stats -->
+        <!-- Model Info + Validation Architecture -->
         <div class="grid-2 animate-fade-up delay-2" style="margin-bottom:1.5rem;">
 
           <!-- Model Parameters -->
           <div class="card">
             <div class="card-title">
               <i data-lucide="settings"></i>
-              Parameter Model Aktif
+              Parameter Model Produksi (Dibekukan)
             </div>
             <div id="model-params-content" style="font-size:0.86rem;"></div>
           </div>
 
-          <!-- Dataset Split -->
+          <!-- Validation & Dataset Architecture -->
           <div class="card">
             <div class="card-title">
-              <i data-lucide="pie-chart"></i>
-              Pembagian Dataset (80:20)
+              <i data-lucide="shield-check"></i>
+              Struktur Validasi &amp; Dataset
             </div>
             <div id="split-content" style="font-size:0.86rem;"></div>
           </div>
@@ -100,11 +110,11 @@
         <!-- CHARTS ROW -->
         <div class="grid-2 animate-fade-up delay-3" style="margin-bottom:1.5rem;">
 
-          <!-- Chart 1: Data Training vs Testing per Kelas -->
+          <!-- Chart 1: Akurasi LOOCV per Mahasiswa -->
           <div class="card">
             <div class="card-title">
               <i data-lucide="bar-chart-2"></i>
-              Jumlah Data Training vs Testing per Mahasiswa
+              Akurasi Validasi LOOCV per Mahasiswa (%)
             </div>
             <div style="position:relative;height:360px;">
               <canvas id="chart-train-test"></canvas>
@@ -115,7 +125,7 @@
           <div class="card">
             <div class="card-title">
               <i data-lucide="users"></i>
-              Distribusi Jumlah Sampel per Mahasiswa
+              Distribusi Sampel Dataset Referensi
             </div>
             <div style="position:relative;height:360px;">
               <canvas id="chart-samples"></canvas>
@@ -127,10 +137,10 @@
         <div class="card animate-fade-up" id="cm-card" style="margin-bottom:1.5rem; display:none;">
           <div class="card-title">
             <i data-lucide="grid"></i>
-            Confusion Matrix
+            Confusion Matrix (Validasi Internal LOOCV K=5)
           </div>
           <p style="font-size:0.82rem;color:var(--text-soft);margin-bottom:1rem;">
-            Baris = kelas aktual, Kolom = kelas prediksi. Diagonal utama (biru) = prediksi benar.
+            Baris = kelas aktual (18 responden), Kolom = kelas prediksi KNN (K=5, Euclidean, Distance-Weighted). Diagonal utama (warna ungu) = prediksi benar.
           </p>
           <div id="cm-table-wrap" style="overflow:auto;max-height:500px;"></div>
         </div>
@@ -139,7 +149,7 @@
         <div class="card animate-fade-up">
           <div class="card-title">
             <i data-lucide="list"></i>
-            Detail Dataset per Mahasiswa
+            Detail Performa LOOCV per Mahasiswa
           </div>
           <div class="table-wrap">
             <table class="data-table">
@@ -148,8 +158,9 @@
                   <th>#</th>
                   <th><i data-lucide="user" style="width:12px;height:12px;vertical-align:-2px;"></i> Mahasiswa</th>
                   <th><i data-lucide="database" style="width:12px;height:12px;vertical-align:-2px;"></i> Total Sampel</th>
-                  <th><i data-lucide="book-open" style="width:12px;height:12px;vertical-align:-2px;"></i> Data Training (80%)</th>
-                  <th><i data-lucide="flask-conical" style="width:12px;height:12px;vertical-align:-2px;"></i> Data Testing (20%)</th>
+                  <th><i data-lucide="check-circle-2" style="width:12px;height:12px;vertical-align:-2px;"></i> Benar (LOOCV)</th>
+                  <th><i data-lucide="x-circle" style="width:12px;height:12px;vertical-align:-2px;"></i> Salah (LOOCV)</th>
+                  <th><i data-lucide="target" style="width:12px;height:12px;vertical-align:-2px;"></i> Akurasi LOOCV</th>
                 </tr>
               </thead>
               <tbody id="per-class-tbody"></tbody>

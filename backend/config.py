@@ -25,9 +25,9 @@ DB_PATH               = os.path.join(BASE_DIR, "database.db")
 EVALUATION_DIR        = os.path.join(BASE_DIR, "tests", "evaluation_results")
 
 # ==============================================================================
-# IMAGE PREPROCESSING PARAMETERS
+# IMAGE PREPROCESSING PARAMETERS (FROZEN CONFIGURATION: 256x256)
 # ==============================================================================
-IMAGE_SIZE           = (128, 128)
+IMAGE_SIZE           = (256, 256)
 GAUSSIAN_BLUR_KERNEL = (5, 5)
 MEDIAN_BLUR_KERNEL   = 3
 MORPH_KERNEL_SIZE    = (3, 3)

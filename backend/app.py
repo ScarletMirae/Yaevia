@@ -67,17 +67,10 @@ def serve_index():
     """Redirect root ke index.html frontend."""
     return send_from_directory(FRONTEND_DIR, "index.html")
 
-@app.route("/<path:filename>")
+@app.route("/<path:filename>", methods=["GET", "HEAD"])
 def serve_frontend(filename):
-    """
-    Melayani semua file frontend (HTML, CSS, JS, gambar).
-    - *.html  → halaman frontend
-    - css/*   → stylesheet
-    - js/*    → script
-    - Fallback ke index.html untuk SPA routing
-    """
-    import os
-    # Cek apakah file ada
+    if filename.startswith("api/"):
+        return jsonify({"success": False, "message": "Endpoint tidak ditemukan"}), 404
     filepath = os.path.join(FRONTEND_DIR, filename)
     if os.path.isfile(filepath):
         return send_from_directory(FRONTEND_DIR, filename)

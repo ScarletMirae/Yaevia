@@ -120,7 +120,11 @@ function resetTrainingUI() {
   stepTimers.forEach(clearTimeout);
   stepTimers = [];
   const steps = document.querySelectorAll(".training-step");
-  steps.forEach((s) => s.className = "training-step");
+  steps.forEach((s, idx) => {
+    s.className = "training-step";
+    const ind = s.querySelector(".step-indicator");
+    if (ind) ind.textContent = (idx + 1).toString();
+  });
   setProgress(0, "");
 }
 
@@ -288,13 +292,6 @@ function resultChip(label, val, icon) {
         <div style="font-size:0.92rem;font-weight:800;color:#1a5c3a;">${val}</div>
       </div>
     </div>`;
-}
-
-// ─────────────────────────────────────────────────────────
-// DUMMY INFO
-// ─────────────────────────────────────────────────────────
-function showDummyInfo() {
-  showToast("Buka terminal → cd backend → python generate_dummy_data.py", "info", 6000);
 }
 
 // ─────────────────────────────────────────────────────────
