@@ -78,9 +78,20 @@ SIMILARITY_THRESHOLDS = {
 }
 
 # ==============================================================================
+# CLAIMED-IDENTITY VERIFICATION PARAMETERS (EXPERIMENT K1 FROZEN PROTOCOL)
+# ==============================================================================
+VERIFICATION_METHOD           = "mean_top5_claimed_writer_euclidean"
+VERIFICATION_K                = 5
+VERIFICATION_THRESHOLD        = 25.1291
+VERIFICATION_THRESHOLD_SOURCE = "Experiment K1 estimated EER operating point"
+VERIFICATION_DECISION_ACCEPT  = "ACCEPT"
+VERIFICATION_DECISION_REJECT  = "REJECT"
+VERIFICATION_STATUS_VALID     = "VALID"
+VERIFICATION_STATUS_INVALID   = "TIDAK VALID"
+
+# ==============================================================================
 # VERIFICATION / IDENTIFICATION DECISION THRESHOLDS (Uncertainty & Rejection)
 # BAB IV — Mekanisme Keputusan Identifikasi:
-#   Membedakan antara Similarity Status (geometris) dengan Verification Status (keputusan):
 #     - TERIDENTIFIKASI    : similarity >= 50.0% (MIRIP/SANGAT MIRIP) dan vote share memadai (>= 35.0%)
 #     - TIDAK PASTI        : similarity 40.0% - 50.0% (KURANG MIRIP) atau vote share terpecah
 #     - TIDAK TERIDENTIFIKASI: similarity < 40.0% (TIDAK MIRIP)

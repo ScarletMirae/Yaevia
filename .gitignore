@@ -48,3 +48,11 @@ desktop.ini
 # Temp
 *.tmp
 *.log
+
+# Experiment Review Bundles & Large Generated Results
+EXPERIMENT_K1_FOR_REVIEW/
+EXPERIMENT_K1_FOR_REVIEW.zip
+backend/results/
+backend/backups/
+scratch/
+backend/tests/scratch/

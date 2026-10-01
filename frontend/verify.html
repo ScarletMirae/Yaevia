@@ -82,29 +82,31 @@
             <p id="preview-filename" style="font-size:0.78rem;color:var(--text-muted);margin-top:0.5rem;"></p>
           </div>
 
-          <!-- Ground Truth Form (Input Manual Identitas Pemilik Tulisan) -->
+          <!-- Claimed Identity Form (Pilihan Identitas Penulis yang Diklaim) -->
           <div id="ground-truth-form" class="ground-truth-container">
             <div style="font-size:0.84rem;font-weight:700;color:var(--text);margin-bottom:0.75rem;display:flex;align-items:center;gap:0.4rem;">
-              <i data-lucide="user-check" style="width:16px;height:16px;color:var(--gold);"></i>
-              Identitas Pemilik Tulisan (Ground Truth)
+              <i data-lucide="shield-check" style="width:16px;height:16px;color:var(--rose-gold);"></i>
+              Klaim Identitas Penulis (Claimed Identity)
             </div>
             <div class="form-group" style="margin-bottom:0.75rem;">
-              <label class="form-label" for="actual-name-input" style="font-size:0.78rem;">
-                Nama Mahasiswa <span class="required">*</span>
+              <label class="form-label" for="claimed-writer-select" style="font-size:0.78rem;">
+                Pilih Identitas yang Diklaim <span class="required">*</span>
               </label>
-              <input type="text" class="form-control" id="actual-name-input" placeholder="Ketik Nama Pemilik Tulisan" style="font-size:0.85rem;" oninput="onIdentityInputChanged()" autocomplete="off" required />
+              <select class="form-control" id="claimed-writer-select" style="font-size:0.85rem;" onchange="onClaimedWriterSelected()" required>
+                <option value="">-- Pilih Penulis Terdaftar --</option>
+              </select>
             </div>
-            <div class="form-group" style="margin-bottom:0.75rem;">
-              <label class="form-label" for="actual-nim-input" style="font-size:0.78rem;">
-                NIM Mahasiswa <span class="required">*</span>
+            <div class="form-group" style="margin-bottom:0.75rem; display:none;" id="claimed-nim-group">
+              <label class="form-label" for="claimed-nim-display" style="font-size:0.78rem;">
+                NIM Terdaftar
               </label>
-              <input type="text" class="form-control" id="actual-nim-input" placeholder="Ketik NIM Mahasiswa" style="font-size:0.85rem;" oninput="onIdentityInputChanged()" autocomplete="off" required />
+              <input type="text" class="form-control" id="claimed-nim-display" style="font-size:0.85rem;background:var(--soft);cursor:not-allowed;" readonly />
             </div>
 
             <!-- Identity Status Checker -->
             <div id="identity-status-checker" style="font-size:0.78rem;font-weight:600;color:var(--text-muted);display:flex;align-items:center;gap:0.35rem;margin-top:0.4rem;">
               <i data-lucide="info" style="width:14px;height:14px;flex-shrink:0;"></i>
-              <span id="identity-status-text">Masukkan nama dan NIM pemilik tulisan.</span>
+              <span id="identity-status-text">Pilih identitas mahasiswa yang diklaim sebagai pemilik tulisan.</span>
             </div>
           </div>
 
@@ -112,13 +114,13 @@
           <button class="btn btn-primary btn-block btn-lg" id="verify-btn"
                   style="margin-top:1.25rem;" onclick="doVerify()" disabled>
             <i data-lucide="search"></i>
-            <span id="verify-btn-text">Verifikasi Sekarang</span>
+            <span id="verify-btn-text">Verifikasi Klaim Identitas</span>
           </button>
 
           <!-- Tips -->
           <div class="alert alert-info" style="margin-top:1.1rem;font-size:0.81rem;">
             <i data-lucide="lightbulb"></i>
-            <span><strong>Tips:</strong> Pastikan gambar tulisan tangan jelas, tidak terpotong, dan memiliki kontras yang baik antara tinta dan latar belakang.</span>
+            <span><strong>Protokol Verifikasi (Experiment K1):</strong> Verifikasi menggunakan <em>Mean Top-5 Claimed Euclidean Distance</em> dengan threshold EER frozen &le; 25.1291.</span>
           </div>
         </div>
 
@@ -129,21 +131,15 @@
             <i data-lucide="scan-search" style="width:30px;height:30px;color:var(--text);stroke-width:1.5;"></i>
           </div>
           <h3 style="color:var(--text-muted);margin-bottom:0.5rem;">Hasil Verifikasi</h3>
-          <p style="font-size:0.84rem;color:var(--text-muted);">Pilih identitas asli pemilik tulisan, upload gambar, dan klik "Verifikasi Sekarang" untuk melihat hasil identifikasi.</p>
+          <p style="font-size:0.84rem;color:var(--text-muted);">Pilih identitas yang diklaim, upload citra query, dan klik "Verifikasi Klaim Identitas" untuk memproses verifikasi 1-to-1.</p>
         </div>
 
         <!-- Result Card (hidden until verified) -->
         <div id="result-panel" style="display:none;">
           <div class="result-card" id="result-card">
 
-            <!-- Status Badge -->
-            <div id="result-badge" class="result-status-badge">
-              <i data-lucide="loader-2" class="spin-icon"></i>
-              Memproses...
-            </div>
-
-            <!-- Dual Identity & Correctness Card -->
-            <div id="dual-identity-card" style="margin-top:1rem;"></div>
+            <!-- Primary Verification Hero Banner -->
+            <div id="verification-hero-card" style="margin-bottom:1.25rem;"></div>
 
             <!-- Similarity Score -->
             <div style="margin:1.25rem 0 1rem;">
@@ -249,7 +245,7 @@
 </style>
 
 
-<script src="js/main.js?v=2.3"></script>
-<script src="js/verify.js?v=2.3"></script>
+<script src="js/main.js?v=2.4"></script>
+<script src="js/verify.js?v=2.4"></script>
 </body>
 </html>

@@ -61,6 +61,35 @@ def api_validate_identity():
 
 
 
+@verify_bp.route("/api/verify/claimed-writers", methods=["GET"], strict_slashes=False)
+def api_get_claimed_writers():
+    """
+    GET /api/verify/claimed-writers
+    Mengembalikan daftar penulis terdaftar (20 writers) untuk opsi dropdown Claimed Identity.
+    """
+    try:
+        conn = get_connection()
+        rows = conn.execute("""
+            SELECT DISTINCT student_name, student_id
+            FROM dataset
+            ORDER BY student_name ASC
+        """).fetchall()
+        conn.close()
+
+        writers = [
+            {
+                "name": r["student_name"],
+                "nim": r["student_id"] or ""
+            }
+            for r in rows
+        ]
+
+        return jsonify({"success": True, "writers": writers, "total": len(writers)}), 200
+    except Exception as e:
+        logger.error(f"Error fetching claimed writers: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
 @verify_bp.route("/api/verify", methods=["POST"], strict_slashes=False)
 def api_verify():
     """
@@ -70,25 +99,10 @@ def api_verify():
     Pipeline yang dijalankan:
       1. Terima file gambar
       2. Simpan sementara ke disk
-      3. Preprocessing (grayscale, thresholding, resize 128x128)
-      4. Ekstraksi fitur HOG (feature vector)
-      5. Klasifikasi KNN + Euclidean Distance (via classifier.py)
+      3. Preprocessing (grayscale, thresholding, resize 256x256 letterbox)
+      4. Ekstraksi fitur HOG (34,596 dim)
+      5. Klasifikasi KNN + Claimed-Identity Verification (via classifier.py & verifier.py)
       6. Return hasil lengkap
-
-    Response JSON:
-        success               (bool)
-        predicted_name        (str)   : Nama mahasiswa yang diprediksi oleh KNN voting
-        predicted_vote_weight (float) : Persentase perolehan voting KNN (0-100%)
-        euclidean_distance    (float) : Jarak Euclidean ke sampel terdekat dari predicted_name
-        similarity_percent    (float) : Sample similarity score 0-100% (Cosine/Normalized HOG)
-        similarity_status     (str)   : SANGAT MIRIP | MIRIP | KURANG MIRIP | TIDAK MIRIP
-        verification_status   (str)   : Sama dengan similarity_status
-        top_matches           (list)  : Top-5 kandidat dengan vote_percent, percent, & distance
-        k_neighbors           (int)   : Nilai K yang digunakan (K=5)
-        feature_vector_length (int)   : Panjang feature vector HOG (8100/9216 dim)
-        analysis_time_seconds (float) : Waktu analisis dalam detik
-        verification_id       (int)   : ID record di database
-        model_version         (str)   : Timestamp model yang digunakan
     """
     if "file" not in request.files:
         return jsonify({"success": False, "message": "Tidak ada file yang diupload"}), 400
@@ -111,26 +125,28 @@ def api_verify():
     query_path    = os.path.join(query_dir, unique_name)
     file.save(query_path)
 
-    # Ambil ground truth jika disediakan (misal untuk batch evaluation / holdout testing)
+    # Ambil claimed writer dan ground truth jika disediakan
+    claimed_writer    = request.form.get("claimed_writer") or request.form.get("claimed_name")
     ground_truth_name = request.form.get("ground_truth_name") or request.form.get("ground_truth") or request.form.get("student_name")
     ground_truth_nim  = request.form.get("ground_truth_nim") or request.form.get("student_id")
 
     try:
         # --- Step 1: Preprocessing citra ---
-        # preprocess_image() menerima path file dan melakukan:
+        # preprocess_image() melakukan:
         # grayscale -> blur -> thresholding Otsu -> noise removal -> ROI -> letterbox 256x256
         processed_img = preprocess_image(query_path)
 
         # --- Step 2: Ekstraksi Fitur HOG ---
         feature_vector = extract_hog_features(processed_img)
 
-        # --- Step 3: Klasifikasi KNN + Euclidean Distance ---
+        # --- Step 3: Klasifikasi KNN + Claimed-Identity Verification ---
         result = verify_image(
             feature_vector    = feature_vector,
             query_filename    = file.filename,
             query_path        = query_path,
             ground_truth_name = ground_truth_name,
             ground_truth_nim  = ground_truth_nim,
+            claimed_writer    = claimed_writer,
         )
 
         if not result.get("success"):
@@ -165,6 +181,9 @@ def api_verify_history():
                    similarity_percent, euclidean_distance, verification_status, similarity_status,
                    top_matches_json, model_version, feature_vector_length, knn_k,
                    analysis_time, ground_truth_name, ground_truth_nim, is_correct,
+                   claimed_writer, verification_score, verification_threshold,
+                   verification_decision, verification_status_verif, verification_method,
+                   top_claimed_distances_json,
                    verification_timestamp
             FROM verifications
             ORDER BY id DESC
@@ -182,6 +201,10 @@ def api_verify_history():
                 rec["top_matches"] = json.loads(rec.get("top_matches_json") or "[]")
             except Exception:
                 rec["top_matches"] = []
+            try:
+                rec["top_claimed_distances"] = json.loads(rec.get("top_claimed_distances_json") or "[]")
+            except Exception:
+                rec["top_claimed_distances"] = []
             data.append(rec)
 
         return jsonify({"success": True, "data": data, "total": total,
@@ -209,6 +232,10 @@ def api_verify_detail(verify_id):
             rec["top_matches"] = json.loads(rec.get("top_matches_json") or "[]")
         except Exception:
             rec["top_matches"] = []
+        try:
+            rec["top_claimed_distances"] = json.loads(rec.get("top_claimed_distances_json") or "[]")
+        except Exception:
+            rec["top_claimed_distances"] = []
 
         return jsonify({"success": True, "data": rec}), 200
 

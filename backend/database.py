@@ -76,6 +76,13 @@ def init_db():
             ground_truth_name     TEXT,
             ground_truth_nim      TEXT,
             is_correct            INTEGER,
+            claimed_writer        TEXT,
+            verification_score    REAL,
+            verification_threshold REAL,
+            verification_decision TEXT,
+            verification_status_verif TEXT,
+            verification_method   TEXT,
+            top_claimed_distances_json TEXT,
             verification_timestamp TEXT NOT NULL
         )
     """)
@@ -128,16 +135,23 @@ def _migrate_columns(cursor, conn):
     """Menambahkan kolom baru pada tabel existing (safe, idempotent)."""
     # Kolom baru untuk verifications
     verif_new_cols = [
-        ("euclidean_distance",    "REAL"),
-        ("similarity_status",     "TEXT"),
-        ("top_matches_json",      "TEXT"),
-        ("feature_vector_length", "INTEGER"),
-        ("knn_k",                 "INTEGER"),
-        ("analysis_time",         "REAL"),
-        ("query_path",            "TEXT NOT NULL DEFAULT ''"),
-        ("ground_truth_name",     "TEXT"),
-        ("ground_truth_nim",      "TEXT"),
-        ("is_correct",            "INTEGER"),
+        ("euclidean_distance",         "REAL"),
+        ("similarity_status",          "TEXT"),
+        ("top_matches_json",           "TEXT"),
+        ("feature_vector_length",      "INTEGER"),
+        ("knn_k",                      "INTEGER"),
+        ("analysis_time",              "REAL"),
+        ("query_path",                 "TEXT NOT NULL DEFAULT ''"),
+        ("ground_truth_name",          "TEXT"),
+        ("ground_truth_nim",           "TEXT"),
+        ("is_correct",                 "INTEGER"),
+        ("claimed_writer",             "TEXT"),
+        ("verification_score",         "REAL"),
+        ("verification_threshold",     "REAL"),
+        ("verification_decision",      "TEXT"),
+        ("verification_status_verif",  "TEXT"),
+        ("verification_method",        "TEXT"),
+        ("top_claimed_distances_json", "TEXT"),
     ]
 
     # Kolom baru untuk model_meta

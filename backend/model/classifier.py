@@ -48,6 +48,7 @@ from config import (
 )
 from database import get_connection
 from model.trainer import get_latest_model_paths
+from model.verifier import verify_claim
 
 logger = logging.getLogger(__name__)
 
@@ -395,6 +396,7 @@ def verify_image(
     query_path: str = "",
     ground_truth_name: str = None,
     ground_truth_nim: str = None,
+    claimed_writer: str = None,
 ) -> dict:
     """
     BAB IV - Fungsi Utama Verifikasi Gambar:
@@ -408,6 +410,7 @@ def verify_image(
         query_path: Path lengkap file gambar.
         ground_truth_name: Nama label sebenarnya (ground truth) jika diketahui.
         ground_truth_nim: NIM label sebenarnya jika diketahui.
+        claimed_writer: Nama penulis yang diklaim untuk 1-to-1 verification (Experiment K1).
 
     Returns:
         dict: Hasil verifikasi dengan semua field yang diperlukan frontend.
@@ -424,13 +427,30 @@ def verify_image(
     t_start = time.time()
 
     try:
-        # Jalankan klasifikasi KNN + Euclidean Distance
+        # Jalankan klasifikasi KNN + Euclidean Distance (1-to-N identification)
         result = classify_handwriting(
             feature_vector, knn_model, label_encoder, X_train, y_train
         )
     except Exception as e:
         logger.error(f"Error classifying: {e}")
         return {"success": False, "message": f"Gagal klasifikasi: {str(e)}"}
+
+    # Claimed-Identity Verification (1-to-1 verification mode)
+    verification_data = None
+    if claimed_writer and str(claimed_writer).strip():
+        try:
+            verification_data = verify_claim(
+                query_feature=feature_vector,
+                claimed_writer=claimed_writer,
+                X_train=X_train,
+                y_train_encoded=y_train,
+                label_encoder=label_encoder,
+                model_version=model_version or timestamp,
+            )
+            result["verification"] = verification_data
+        except Exception as e:
+            logger.error(f"Error in verify_claim: {e}")
+            return {"success": False, "message": f"Gagal verifikasi klaim identitas: {str(e)}"}
 
     # Hitung total waktu analisis
     analysis_time = round(time.time() - t_start, 4)
@@ -451,6 +471,15 @@ def verify_image(
     # Konversi top_matches ke JSON string untuk database
     top_matches_json = json.dumps(result["top_matches"], ensure_ascii=False)
 
+    # Ekstrak data verifikasi klaim untuk disimpan ke DB
+    db_claimed_writer = verification_data["claimed_writer"] if verification_data else None
+    db_verif_score    = verification_data["score"] if verification_data else None
+    db_verif_thresh   = verification_data["threshold"] if verification_data else None
+    db_verif_decision = verification_data["decision"] if verification_data else None
+    db_verif_status   = verification_data["status"] if verification_data else None
+    db_verif_method   = verification_data["method"] if verification_data else None
+    db_top_claimed_dists = json.dumps(verification_data["neighbor_distances"]) if verification_data else None
+
     # Simpan hasil ke database verifications
     try:
         conn = get_connection()
@@ -461,8 +490,11 @@ def verify_image(
                 similarity_percent, euclidean_distance, verification_status, similarity_status,
                 top_matches_json, model_version, feature_vector_length, knn_k,
                 analysis_time, ground_truth_name, ground_truth_nim, is_correct,
+                claimed_writer, verification_score, verification_threshold,
+                verification_decision, verification_status_verif, verification_method,
+                top_claimed_distances_json,
                 verification_timestamp
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now','localtime'))
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now','localtime'))
         """, (
             query_filename,
             query_path,
@@ -479,6 +511,13 @@ def verify_image(
             ground_truth_name,
             ground_truth_nim,
             is_correct,
+            db_claimed_writer,
+            db_verif_score,
+            db_verif_thresh,
+            db_verif_decision,
+            db_verif_status,
+            db_verif_method,
+            db_top_claimed_dists,
         ))
         result["verification_id"] = cur.lastrowid
         conn.commit()

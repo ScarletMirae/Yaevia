@@ -7,42 +7,19 @@ const getApiBase = () => {
 };
 
 let selectedFile = null;
-let identityValidated = false;
-let validationTimer = null;
+let selectedWriter = null;
+let registeredWriters = [];
 
 // Entry point initialization
 document.addEventListener("DOMContentLoaded", () => {
   console.log("[VERIFY] DOMContentLoaded fired");
   
-  const fileInput = document.getElementById("file-input");
-  const dropZone = document.getElementById("drop-zone");
-  const previewContainer = document.getElementById("preview-container");
-  const previewImg = document.getElementById("preview-img");
-  const previewFilename = document.getElementById("preview-filename");
-  const removePreviewBtn = document.getElementById("remove-preview");
-  const actualNameInput = document.getElementById("actual-name-input");
-  const actualNimInput = document.getElementById("actual-nim-input");
-  const identityStatus = document.getElementById("identity-status-checker");
-  const verifyBtn = document.getElementById("verify-btn");
-
-  console.log("[VERIFY] Elements check:", {
-    fileInput: !!fileInput,
-    dropZone: !!dropZone,
-    previewContainer: !!previewContainer,
-    previewImg: !!previewImg,
-    previewFilename: !!previewFilename,
-    removePreviewBtn: !!removePreviewBtn,
-    actualNameInput: !!actualNameInput,
-    actualNimInput: !!actualNimInput,
-    identityStatus: !!identityStatus,
-    verifyBtn: !!verifyBtn
-  });
-
   initUploadEvents();
-  initIdentityEvents();
+  loadClaimedWriters();
   checkFormValidity();
 });
 
+// ── Upload event wiring ──────────────────────────────────────────────────────
 function initUploadEvents() {
   const dropZone  = document.getElementById("drop-zone");
   const fileInput = document.getElementById("file-input");
@@ -60,47 +37,111 @@ function initUploadEvents() {
   dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
 
   dropZone.addEventListener("click", (e) => {
-    if (e.target !== fileInput) {
-      fileInput.click();
-    }
+    if (e.target !== fileInput) fileInput.click();
   });
 
   dropZone.addEventListener("drop", (e) => {
     e.preventDefault();
     dropZone.classList.remove("dragover");
-    console.log("[VERIFY] DROP EVENT FIRED. files count:", e.dataTransfer.files ? e.dataTransfer.files.length : 0);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleFile(e.dataTransfer.files[0]);
     }
   });
 
   fileInput.addEventListener("change", (e) => {
-    console.log("[VERIFY] FILE CHANGE FIRED");
-    console.log("[VERIFY] files:", e.target.files);
-    console.log("[VERIFY] first file:", e.target.files ? e.target.files[0] : null);
     if (e.target.files && e.target.files[0]) {
       handleFile(e.target.files[0]);
     }
   });
 }
 
-function initIdentityEvents() {
-  const actualNameInput = document.getElementById("actual-name-input");
-  const actualNimInput  = document.getElementById("actual-nim-input");
-
-  if (actualNameInput) {
-    actualNameInput.addEventListener("input", () => {
-      console.log("[VERIFY] NAME INPUT", actualNameInput.value);
-      onIdentityInputChanged();
-    });
+// ── Claimed Writers Dropdown Loader ──────────────────────────────────────────
+async function loadClaimedWriters() {
+  const selectEl = document.getElementById("claimed-writer-select");
+  if (!selectEl) {
+    console.error("[VERIFY] claimed-writer-select element not found!");
+    return;
   }
 
-  if (actualNimInput) {
-    actualNimInput.addEventListener("input", () => {
-      console.log("[VERIFY] NIM INPUT", actualNimInput.value);
-      onIdentityInputChanged();
-    });
+  // Show loading state in dropdown
+  selectEl.innerHTML = '<option value="">⏳ Memuat daftar penulis...</option>';
+  selectEl.disabled = true;
+
+  try {
+    const baseUrl = getApiBase();
+    const url = baseUrl + "/api/verify/claimed-writers";
+    console.log("[VERIFY] Fetching claimed writers from:", url);
+
+    const res = await fetch(url);
+    console.log("[VERIFY] claimed-writers HTTP status:", res.status);
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    }
+
+    const data = await res.json();
+    console.log("[VERIFY] claimed-writers response:", data);
+
+    if (data.success && Array.isArray(data.writers) && data.writers.length > 0) {
+      registeredWriters = data.writers;
+      selectEl.innerHTML = '<option value="">-- Pilih Penulis Terdaftar --</option>';
+      data.writers.forEach(w => {
+        const opt = document.createElement("option");
+        opt.value = w.name;
+        opt.textContent = w.nim ? `${w.name} (${w.nim})` : w.name;
+        opt.dataset.nim = w.nim || "";
+        selectEl.appendChild(opt);
+      });
+      selectEl.disabled = false;
+      console.log(`[VERIFY] ✓ Loaded ${data.writers.length} registered writers into dropdown.`);
+    } else {
+      throw new Error(`Respons tidak valid: success=${data.success}, writers=${JSON.stringify(data.writers)}`);
+    }
+  } catch (err) {
+    console.error("[VERIFY] ✗ Failed to load claimed writers:", err);
+    selectEl.innerHTML = '<option value="">⚠ Gagal memuat. Periksa koneksi ke server.</option>';
+    selectEl.disabled = false;
+    // Show user-visible warning inline
+    const checker = document.getElementById("identity-status-checker");
+    if (checker) {
+      checker.style.color = "#c0392b";
+      checker.innerHTML = `<i data-lucide="wifi-off" style="width:14px;height:14px;flex-shrink:0;"></i>
+        <span>Gagal memuat daftar penulis terdaftar. Pastikan server Flask berjalan dan refresh halaman.</span>`;
+      if (window.lucide) lucide.createIcons({ nodes: [checker] });
+    }
+    if (typeof showToast === "function") {
+      showToast("Gagal memuat daftar penulis. Periksa koneksi ke server.", "error");
+    }
   }
+}
+
+function onClaimedWriterSelected() {
+  const selectEl = document.getElementById("claimed-writer-select");
+  const nimGroup = document.getElementById("claimed-nim-group");
+  const nimDisplay = document.getElementById("claimed-nim-display");
+  const checker = document.getElementById("identity-status-checker");
+
+  if (!selectEl || !selectEl.value) {
+    selectedWriter = null;
+    if (nimGroup) nimGroup.style.display = "none";
+    updateIdentityCheckerUI("default", "Pilih identitas mahasiswa yang diklaim sebagai pemilik tulisan.");
+    checkFormValidity();
+    return;
+  }
+
+  const selectedOpt = selectEl.options[selectEl.selectedIndex];
+  const name = selectEl.value;
+  const nim = selectedOpt.dataset.nim || "";
+
+  selectedWriter = { name, nim };
+
+  if (nimGroup && nimDisplay) {
+    nimDisplay.value = nim || "-";
+    nimGroup.style.display = "block";
+  }
+
+  updateIdentityCheckerUI("valid", `✓ Klaim identitas dipilih: ${name}`);
+  checkFormValidity();
 }
 
 function handleFile(file) {
@@ -172,60 +213,6 @@ function removePreview() {
   resetSteps();
 }
 
-function onIdentityInputChanged() {
-  identityValidated = false;
-  checkFormValidity();
-  updateIdentityCheckerUI("checking", "Memeriksa identitas...");
-
-  if (validationTimer) clearTimeout(validationTimer);
-  validationTimer = setTimeout(validateIdentity, 300);
-}
-
-async function validateIdentity() {
-  const nameInput = document.getElementById("actual-name-input");
-  const nimInput  = document.getElementById("actual-nim-input");
-
-  const name = nameInput ? nameInput.value.trim() : "";
-  const nim  = nimInput ? nimInput.value.trim() : "";
-
-  if (!name || !nim) {
-    identityValidated = false;
-    updateIdentityCheckerUI("default", "Masukkan nama dan NIM pemilik tulisan.");
-    checkFormValidity();
-    return;
-  }
-
-  updateIdentityCheckerUI("checking", "Memeriksa identitas...");
-
-  try {
-    const baseUrl = getApiBase();
-    console.log("[VERIFY] Fetching identity validation:", { name, nim, url: baseUrl + "/api/verify/validate-identity" });
-    const res = await fetch(baseUrl + "/api/verify/validate-identity", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ student_name: name, student_id: nim })
-    });
-    const data = await res.json();
-    console.log("[VERIFY] Identity validation response:", data);
-
-    if (data.success && data.valid) {
-      identityValidated = true;
-      updateIdentityCheckerUI("valid", "✓ Identitas terdaftar");
-    } else if (data.success && !data.valid) {
-      identityValidated = false;
-      updateIdentityCheckerUI("invalid", "✕ Nama dan NIM tidak sesuai dengan data mahasiswa");
-    } else {
-      identityValidated = false;
-      updateIdentityCheckerUI("error", "✕ Gagal menghubungi layanan validasi");
-    }
-  } catch (err) {
-    console.error("[VERIFY] Identity Validation Error:", err);
-    identityValidated = false;
-    updateIdentityCheckerUI("error", "✕ Gagal menghubungi layanan validasi");
-  }
-  checkFormValidity();
-}
-
 function updateIdentityCheckerUI(state, text) {
   const checker = document.getElementById("identity-status-checker");
   if (!checker) return;
@@ -253,41 +240,36 @@ function checkFormValidity() {
   const verifyBtn = document.getElementById("verify-btn");
   if (!verifyBtn) return;
 
-  const canVerify = selectedFile !== null && identityValidated === true;
+  const canVerify = selectedFile !== null && selectedWriter !== null;
   verifyBtn.disabled = !canVerify;
-  console.log("[VERIFY] checkFormValidity:", {
-    hasFile: selectedFile !== null,
-    identityValidated: identityValidated,
-    canVerify: canVerify
-  });
 }
 
 async function doVerify() {
-  if (!selectedFile || !identityValidated) {
-    showToast("Silakan pilih gambar dan isi identitas mahasiswa yang valid.", "warning");
+  if (!selectedFile || !selectedWriter) {
+    showToast("Silakan pilih gambar dan identitas mahasiswa yang diklaim.", "warning");
     return;
   }
-
-  const nameInput = document.getElementById("actual-name-input");
-  const nimInput  = document.getElementById("actual-nim-input");
-
-  const name = nameInput ? nameInput.value.trim() : "";
-  const nim  = nimInput ? nimInput.value.trim() : "";
 
   const verifyBtn = document.getElementById("verify-btn");
   if (verifyBtn) {
     verifyBtn.disabled = true;
-    verifyBtn.innerHTML = `<i data-lucide="loader-2" class="spin-icon"></i> <span>Verifikasi Berjalan...</span>`;
+    verifyBtn.innerHTML = `<i data-lucide="loader-2" class="spin-icon"></i> <span>Memverifikasi Klaim...</span>`;
     if (window.lucide) lucide.createIcons({ nodes: [verifyBtn] });
   }
 
   document.getElementById("result-placeholder").style.display = "none";
   const resultPanel = document.getElementById("result-panel");
   resultPanel.style.display = "block";
-  const resultBadge = document.getElementById("result-badge");
-  resultBadge.className = "result-status-badge";
-  resultBadge.innerHTML = `<i data-lucide="loader-2" class="spin-icon"></i> Memproses Verifikasi...`;
-  if (window.lucide) lucide.createIcons();
+
+  const heroCard = document.getElementById("verification-hero-card");
+  if (heroCard) {
+    heroCard.innerHTML = `
+      <div style="background:var(--white);border:1.5px solid rgba(200,155,110,0.25);border-radius:var(--radius-md);padding:1.5rem;text-align:center;">
+        <i data-lucide="loader-2" class="spin-icon" style="width:28px;height:28px;color:var(--rose-gold);margin-bottom:0.5rem;"></i>
+        <div style="font-weight:700;color:var(--text);">Memproses Ekstraksi HOG dan Verifikasi Jarak...</div>
+      </div>`;
+    if (window.lucide) lucide.createIcons({ nodes: [heroCard] });
+  }
 
   const STEP_IDS = ["step-upload", "step-preprocess", "step-hog", "step-knn", "step-result"];
   resetSteps();
@@ -312,12 +294,13 @@ async function doVerify() {
 
   const formData = new FormData();
   formData.append("file", selectedFile);
-  formData.append("ground_truth_name", name);
-  formData.append("ground_truth_nim", nim);
+  formData.append("claimed_writer", selectedWriter.name);
+  formData.append("ground_truth_name", selectedWriter.name);
+  formData.append("ground_truth_nim", selectedWriter.nim || "");
 
   try {
     const baseUrl = getApiBase();
-    console.log("[VERIFY] Submitting verification payload to:", baseUrl + "/api/verify");
+    console.log("[VERIFY] Submitting payload with claimed_writer:", selectedWriter.name);
     const res = await fetch(baseUrl + "/api/verify", {
       method: "POST",
       body: formData
@@ -331,24 +314,32 @@ async function doVerify() {
 
     if (!data.success) {
       showToast(data.message || "Verifikasi gagal", "error");
-      resultBadge.className = "result-status-badge badge-unverified";
-      resultBadge.innerHTML = `<i data-lucide="circle-x"></i> ${data.message || "Gagal"}`;
-      if (window.lucide) lucide.createIcons();
+      if (heroCard) {
+        heroCard.innerHTML = `
+          <div class="result-status-badge badge-unverified" style="margin:0 auto;">
+            <i data-lucide="circle-x"></i> ${data.message || "Gagal"}
+          </div>`;
+        if (window.lucide) lucide.createIcons();
+      }
       resetBtn();
       return;
     }
 
     renderResult(data);
-    showToast("Verifikasi selesai!", "success");
+    showToast("Verifikasi klaim selesai!", "success");
 
   } catch (err) {
     console.error("[VERIFY] Verify Network Error:", err);
     const lastStep = document.getElementById(STEP_IDS[STEP_IDS.length - 1]);
     if (lastStep) lastStep.className = "process-step done";
     showToast("Tidak dapat terhubung ke server Flask", "error");
-    resultBadge.className = "result-status-badge badge-unverified";
-    resultBadge.innerHTML = `<i data-lucide="wifi-off"></i> Server tidak aktif`;
-    if (window.lucide) lucide.createIcons();
+    if (heroCard) {
+      heroCard.innerHTML = `
+        <div class="result-status-badge badge-unverified" style="margin:0 auto;">
+          <i data-lucide="wifi-off"></i> Server tidak aktif
+        </div>`;
+      if (window.lucide) lucide.createIcons();
+    }
   }
 
   resetBtn();
@@ -358,26 +349,97 @@ function resetBtn() {
   checkFormValidity();
   const btn = document.getElementById("verify-btn");
   if (btn && !btn.disabled) {
-    btn.innerHTML = `<i data-lucide="search"></i><span id="verify-btn-text">Verifikasi Sekarang</span>`;
+    btn.innerHTML = `<i data-lucide="search"></i><span id="verify-btn-text">Verifikasi Klaim Identitas</span>`;
     if (window.lucide) lucide.createIcons({ nodes: [btn] });
   }
 }
 
-function getStatusMeta(status) {
-  const s = String(status || '').toUpperCase();
-  if (s.includes("TERIDENTIFIKASI") || s.includes("SANGAT YAKIN") || s.includes("SANGAT MIRIP")) {
-    return { cls: "badge-verified", icon: "shield-check" };
-  }
-  if (s.includes("MIRIP")) {
-    return { cls: "badge-mirip", icon: "check-circle" };
-  }
-  if (s.includes("TIDAK PASTI") || s.includes("KURANG MIRIP")) {
-    return { cls: "badge-uncertain", icon: "help-circle" };
-  }
-  return { cls: "badge-unverified", icon: "x-circle" };
-}
-
 function renderResult(data) {
+  const verif = data.verification || {};
+  const isAccepted = verif.decision === "ACCEPT" || verif.status === "VALID";
+  const verifScore = typeof verif.score === "number" ? verif.score.toFixed(4) : "—";
+  const verifThreshold = typeof verif.threshold === "number" ? verif.threshold.toFixed(4) : "25.1291";
+  const claimedName = verif.claimed_writer || data.ground_truth_name || "—";
+  const claimedNim = data.ground_truth_nim || (selectedWriter ? selectedWriter.nim : "—");
+  const neighborDists = Array.isArray(verif.neighbor_distances) ? verif.neighbor_distances : [];
+
+  const heroCard = document.getElementById("verification-hero-card");
+  if (heroCard) {
+    heroCard.innerHTML = `
+      <div style="background:${isAccepted ? 'linear-gradient(135deg,rgba(212,245,233,0.45),rgba(255,255,255,0.98))' : 'linear-gradient(135deg,rgba(255,229,229,0.5),rgba(255,255,255,0.98))'};
+                  border:2px solid ${isAccepted ? '#2ecc71' : '#e74c3c'};
+                  border-radius:var(--radius-md);padding:1.4rem;box-shadow:0 6px 18px rgba(0,0,0,0.06);margin-bottom:1.25rem;">
+        
+        <!-- Header & Badge -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.1rem;padding-bottom:0.85rem;border-bottom:1px solid rgba(0,0,0,0.08);flex-wrap:wrap;gap:0.75rem;">
+          <div style="display:flex;align-items:center;gap:0.65rem;">
+            <div style="width:42px;height:42px;border-radius:50%;background:${isAccepted ? '#2ecc71' : '#e74c3c'};color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:1.35rem;box-shadow:0 3px 8px ${isAccepted ? 'rgba(46,204,113,0.35)' : 'rgba(231,76,60,0.35)'};">
+              ${isAccepted ? '✓' : '✕'}
+            </div>
+            <div>
+              <div style="font-size:0.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;">Status Verifikasi Klaim (1-to-1 Mode)</div>
+              <div style="font-size:1.25rem;font-weight:900;color:${isAccepted ? '#1e8449' : '#c0392b'};letter-spacing:0.02em;">
+                ${isAccepted ? 'VALID (ACCEPT)' : 'TIDAK VALID (REJECT)'}
+              </div>
+            </div>
+          </div>
+          <span style="font-size:0.78rem;font-weight:800;padding:0.35rem 0.85rem;border-radius:20px;background:${isAccepted ? '#d4f5e9' : '#ffe5e5'};color:${isAccepted ? '#1a5c3a' : '#7a2e45'};border:1px solid ${isAccepted ? 'rgba(46,204,113,0.4)' : 'rgba(231,76,60,0.4)'};">
+            ${isAccepted ? 'Claim Verified' : 'Claim Rejected'}
+          </span>
+        </div>
+
+        <!-- Identity & Comparison Grid -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.9rem;text-align:left;margin-bottom:1rem;">
+          <!-- Claimed Identity Card -->
+          <div style="background:var(--white);padding:0.85rem 1rem;border-radius:var(--radius-sm);border:1px solid rgba(0,0,0,0.08);">
+            <div style="font-size:0.7rem;font-weight:700;color:var(--rose-gold);text-transform:uppercase;margin-bottom:0.35rem;display:flex;align-items:center;gap:0.35rem;">
+              <i data-lucide="user-check" style="width:13px;height:13px;"></i> Identitas yang Diklaim
+            </div>
+            <div style="font-size:1rem;font-weight:800;color:var(--text);">${claimedName}</div>
+            <div style="font-size:0.78rem;color:var(--text-muted);margin-top:2px;">NIM: ${claimedNim || '—'}</div>
+          </div>
+
+          <!-- Score & Threshold Card -->
+          <div style="background:var(--white);padding:0.85rem 1rem;border-radius:var(--radius-sm);border:1px solid rgba(0,0,0,0.08);">
+            <div style="font-size:0.7rem;font-weight:700;color:var(--purple);text-transform:uppercase;margin-bottom:0.35rem;display:flex;align-items:center;gap:0.35rem;">
+              <i data-lucide="gauge" style="width:13px;height:13px;"></i> Jarak vs Batas Ambang (EER)
+            </div>
+            <div style="font-size:0.88rem;font-weight:700;color:var(--text);">
+              Skor Jarak: <span style="font-size:1.05rem;font-weight:900;color:${isAccepted ? '#1e8449' : '#c0392b'};">${verifScore}</span>
+            </div>
+            <div style="font-size:0.76rem;color:var(--text-muted);margin-top:2px;">
+              Threshold: <strong>${verifThreshold}</strong> &bull; Rule: <em>d &le; ${verifThreshold}</em>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5-Neighbor Breakdown to Claimed Writer -->
+        ${neighborDists.length > 0 ? `
+        <div style="background:rgba(255,255,255,0.7);padding:0.75rem 0.9rem;border-radius:var(--radius-sm);border:1px solid rgba(0,0,0,0.06);text-align:left;">
+          <div style="font-size:0.72rem;font-weight:700;color:var(--text-soft);margin-bottom:0.4rem;display:flex;align-items:center;gap:0.35rem;">
+            <i data-lucide="list-ordered" style="width:12px;height:12px;color:var(--rose-gold);"></i> 5 Jarak Euclidean Terdekat ke Sampel Penulis yang Diklaim:
+          </div>
+          <div style="display:flex;gap:0.45rem;flex-wrap:wrap;">
+            ${neighborDists.map((d, idx) => `
+              <span style="font-size:0.75rem;font-weight:700;font-family:monospace;background:var(--white);padding:0.25rem 0.55rem;border-radius:4px;border:1px solid rgba(200,155,110,0.25);color:var(--text);">
+                #${idx + 1}: ${typeof d === "number" ? d.toFixed(4) : d}
+              </span>
+            `).join("")}
+            <span style="font-size:0.72rem;font-weight:600;color:var(--text-muted);align-self:center;margin-left:auto;">
+              Rata-rata Top-5: <strong>${verifScore}</strong> (Lower = Closer)
+            </span>
+          </div>
+        </div>` : ''}
+
+        <!-- Method Attribution Note -->
+        <div style="font-size:0.68rem;color:var(--text-muted);margin-top:0.65rem;text-align:center;">
+          Metode: <em>Mean Top-5 Claimed Euclidean Distance</em> &bull; Sumber Threshold: <em>Experiment K1 estimated EER operating point</em>
+        </div>
+      </div>
+    `;
+  }
+
+  // Supporting 1-to-N Identification
   const pct          = parseFloat(data.similarity_percent || 0);
   const votePct      = parseFloat(
     data.predicted_vote_weight ?? 
@@ -385,64 +447,10 @@ function renderResult(data) {
     0
   );
   const dist         = parseFloat(data.euclidean_distance || 0);
-  const verifStatus  = data.verification_status || "TIDAK TERIDENTIFIKASI";
   const simStatus    = data.similarity_status || "TIDAK MIRIP";
   const time         = parseFloat(data.analysis_time_seconds || 0);
   const featLen      = data.feature_vector_length || 0;
   const kVal         = data.k_neighbors || 5;
-  const isCorrect    = data.is_correct === 1;
-
-  const meta  = getStatusMeta(verifStatus);
-  const badge = document.getElementById("result-badge");
-  if (badge) {
-    badge.className = `result-status-badge ${meta.cls}`;
-    badge.innerHTML = `<i data-lucide="${meta.icon}"></i> ${verifStatus} &bull; ${simStatus}`;
-  }
-
-  const dualCard = document.getElementById("dual-identity-card");
-  if (dualCard) {
-    dualCard.innerHTML = `
-      <div style="background:${isCorrect ? 'linear-gradient(135deg,rgba(212,245,233,0.35),rgba(255,255,255,0.95))' : 'linear-gradient(135deg,rgba(255,229,229,0.4),rgba(255,255,255,0.95))'};
-                  border:2px solid ${isCorrect ? '#2ecc71' : '#e74c3c'};
-                  border-radius:var(--radius-md);padding:1.1rem;box-shadow:0 4px 12px rgba(0,0,0,0.05);margin-bottom:1rem;">
-        
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;padding-bottom:0.75rem;border-bottom:1px solid rgba(0,0,0,0.08);">
-          <div style="display:flex;align-items:center;gap:0.5rem;">
-            <div style="width:32px;height:32px;border-radius:50%;background:${isCorrect ? '#2ecc71' : '#e74c3c'};color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:1.1rem;">
-              ${isCorrect ? '✓' : '✕'}
-            </div>
-            <div>
-              <div style="font-size:0.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Evaluasi Match</div>
-              <div style="font-size:1rem;font-weight:800;color:${isCorrect ? '#1e8449' : '#c0392b'};">
-                ${isCorrect ? '✓ IDENTIFIKASI SESUAI' : '✕ IDENTIFIKASI TIDAK SESUAI'}
-              </div>
-            </div>
-          </div>
-          <span style="font-size:0.75rem;font-weight:700;padding:0.3rem 0.6rem;border-radius:20px;background:${isCorrect ? '#d4f5e9' : '#ffe5e5'};color:${isCorrect ? '#1a5c3a' : '#7a2e45'};">
-            ${isCorrect ? 'Ground Truth Verified' : 'Mismatch Record'}
-          </span>
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.85rem;text-align:left;">
-          <div style="background:var(--white);padding:0.75rem 0.85rem;border-radius:var(--radius-sm);border:1px solid rgba(0,0,0,0.08);">
-            <div style="font-size:0.7rem;font-weight:700;color:var(--purple);text-transform:uppercase;margin-bottom:0.35rem;display:flex;align-items:center;gap:0.3rem;">
-              <i data-lucide="user-check" style="width:12px;height:12px;"></i> Identitas Asli
-            </div>
-            <div style="font-size:0.92rem;font-weight:800;color:var(--text);">${data.ground_truth_name || '—'}</div>
-            <div style="font-size:0.78rem;color:var(--text-muted);margin-top:2px;">NIM: ${data.ground_truth_nim || '—'}</div>
-          </div>
-
-          <div style="background:var(--white);padding:0.75rem 0.85rem;border-radius:var(--radius-sm);border:1px solid rgba(0,0,0,0.08);">
-            <div style="font-size:0.7rem;font-weight:700;color:var(--rose-gold);text-transform:uppercase;margin-bottom:0.35rem;display:flex;align-items:center;gap:0.3rem;">
-              <i data-lucide="bot" style="width:12px;height:12px;"></i> Hasil Identifikasi KNN
-            </div>
-            <div style="font-size:0.92rem;font-weight:800;color:var(--text);">${data.predicted_name || '—'}</div>
-            <div style="font-size:0.78rem;color:var(--text-muted);margin-top:2px;">Similarity: ${pct.toFixed(1)}%</div>
-          </div>
-        </div>
-      </div>
-    `;
-  }
 
   const scoreText = document.getElementById("result-score-text");
   if (scoreText) scoreText.textContent = pct.toFixed(1) + "%";
@@ -456,12 +464,12 @@ function renderResult(data) {
   if (metaEl) {
     metaEl.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:0.5rem;margin-top:0.85rem;">
-        ${metaChip("KNN Vote Share",     votePct.toFixed(2) + "%", "git-merge")}
-        ${metaChip("Sample Similarity",  pct.toFixed(2) + "%", "percent")}
-        ${metaChip("Euclidean Distance", dist.toFixed(4), "ruler")}
-        ${metaChip("Nilai K",            kVal, "users")}
-        ${metaChip("Feature Vector",     featLen.toLocaleString() + " dim", "bar-chart-2")}
-        ${metaChip("Waktu Analisis",     time.toFixed(3) + " detik", "clock")}
+        ${metaChip("Prediksi KNN (Top-1)", data.predicted_name || "—", "award")}
+        ${metaChip("KNN Vote Share",       votePct.toFixed(2) + "%", "git-merge")}
+        ${metaChip("Sample Similarity",    pct.toFixed(2) + "%", "percent")}
+        ${metaChip("Min Euclidean Dist",   dist.toFixed(4), "ruler")}
+        ${metaChip("Nilai K",              kVal, "users")}
+        ${metaChip("Waktu Analisis",       time.toFixed(3) + " detik", "clock")}
       </div>`;
   }
 
