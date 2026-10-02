@@ -125,5 +125,5 @@ MAX_CONTENT_LENGTH = 16 * 1024 * 1024
 # ==============================================================================
 FLASK_HOST  = "0.0.0.0"
 FLASK_PORT  = 5000
-FLASK_DEBUG = True
+FLASK_DEBUG = False
 SECRET_KEY  = "handwriting-verification-secret-key-2024"
