@@ -70,13 +70,13 @@
   "knn_metric": "euclidean",
   "knn_weights": "distance",
   "loocv_benchmark": {
-    "loocv_accuracy": 61.9444,
-    "loocv_precision_macro": 63.21,
-    "loocv_recall_macro": 61.94,
-    "loocv_f1_macro": 61.29,
-    "loocv_n_samples": 360,
-    "loocv_correct_count": 223,
-    "loocv_wrong_count": 137
+    "loocv_accuracy": 61.0,
+    "loocv_precision_macro": 60.27,
+    "loocv_recall_macro": 61.0,
+    "loocv_f1_macro": 60.27,
+    "loocv_n_samples": 400,
+    "loocv_correct_count": 244,
+    "loocv_wrong_count": 156
   },
   "train_accuracy": 100.0,
   "test_accuracy": 61.25,

@@ -190,11 +190,12 @@ async function showDetail(id) {
             </div>`).join("")}
         </div>` : ""}
 
+      ${!window.IS_PUBLIC_EVALUATION_MODE ? `
       <div style="margin-top:1.25rem;text-align:center;">
         <button class="btn btn-danger btn-sm" onclick="deleteRecord(${r.id}, true)">
           <i data-lucide="trash-2"></i> Hapus Record
         </button>
-      </div>`;
+      </div>` : ""}`;
     if (window.lucide) lucide.createIcons({ nodes: [content] });
   } catch (err) {
     content.innerHTML = `<div class="alert alert-error"><i data-lucide="circle-x"></i><span>${err.message}</span></div>`;

@@ -18,7 +18,7 @@ import cv2
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import DATASET_RAW_DIR, DATASET_PROCESSED_DIR, ALLOWED_EXTENSIONS
+from config import DATASET_RAW_DIR, DATASET_PROCESSED_DIR, ALLOWED_EXTENSIONS, PUBLIC_EVALUATION_MODE
 from database import get_connection
 from preprocessing.image_processor import preprocess_image
 
@@ -48,6 +48,13 @@ def upload_image():
     Returns:
         JSON: { success, message, data: { id, filename, student_name, ... } }
     """
+    if PUBLIC_EVALUATION_MODE:
+        return jsonify({
+            "success": False,
+            "error": "PUBLIC_EVALUATION_MODE_ACTIVE",
+            "message": "Upload citra dataset dinonaktifkan dalam Mode Evaluasi Media / Public Demo."
+        }), 403
+
     # --- Validasi form data ---
     if "file" not in request.files:
         return jsonify({"success": False, "message": "Tidak ada file dalam request"}), 400
@@ -237,6 +244,13 @@ def delete_dataset_item(dataset_id: int):
     Menghapus satu entri dataset berdasarkan ID.
     File fisik (raw + processed) juga akan dihapus.
     """
+    if PUBLIC_EVALUATION_MODE:
+        return jsonify({
+            "success": False,
+            "error": "PUBLIC_EVALUATION_MODE_ACTIVE",
+            "message": "Penghapusan data dataset dinonaktifkan dalam Mode Evaluasi Media / Public Demo."
+        }), 403
+
     conn = get_connection()
     row = conn.execute("SELECT * FROM dataset WHERE id=?", (dataset_id,)).fetchone()
 
@@ -266,6 +280,13 @@ def delete_dataset_item(dataset_id: int):
 @dataset_bp.route("/all", methods=["DELETE"])
 def delete_all_dataset():
     """Menghapus seluruh dataset dan semua file citra terkait."""
+    if PUBLIC_EVALUATION_MODE:
+        return jsonify({
+            "success": False,
+            "error": "PUBLIC_EVALUATION_MODE_ACTIVE",
+            "message": "Penghapusan seluruh dataset dinonaktifkan dalam Mode Evaluasi Media / Public Demo."
+        }), 403
+
     conn = get_connection()
     rows = conn.execute("SELECT file_path, processed_path FROM dataset").fetchall()
 

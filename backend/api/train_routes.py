@@ -12,6 +12,7 @@ import sys
 from flask import Blueprint, request, jsonify
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import PUBLIC_EVALUATION_MODE
 from model.trainer import train_model, get_latest_metadata, validate_dataset_min_samples
 from database import get_active_model_meta
 
@@ -62,6 +63,13 @@ def api_train():
         insufficient_students (list[str])
         counts (dict)
     """
+    if PUBLIC_EVALUATION_MODE:
+        return jsonify({
+            "success": False,
+            "error": "PUBLIC_EVALUATION_MODE_ACTIVE",
+            "message": "Pelatihan/retraining model dinonaktifkan dalam Mode Evaluasi Media / Public Demo."
+        }), 403
+
     data = request.get_json(silent=True) or {}
 
     # Ambil parameter dari request (fallback ke config default)

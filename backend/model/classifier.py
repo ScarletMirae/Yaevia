@@ -382,6 +382,15 @@ def _load_latest_model_files() -> tuple:
     X_train       = joblib.load(Xtrain_path)
     y_train       = joblib.load(ytrain_path)
 
+    # Fail-safe guard: Pastikan hanya model H0 resmi yang digunakan saat Public Evaluation Mode
+    from config import PUBLIC_EVALUATION_MODE, FROZEN_H0_MODEL_VERSION
+    if PUBLIC_EVALUATION_MODE:
+        if str(timestamp).strip() != str(FROZEN_H0_MODEL_VERSION).strip():
+            raise RuntimeError(
+                f"[GUARD] Public Evaluation Mode requires frozen H0 model version '{FROZEN_H0_MODEL_VERSION}', "
+                f"but found active model version '{timestamp}'."
+            )
+
     return knn_model, label_encoder, X_train, y_train, timestamp
 
 

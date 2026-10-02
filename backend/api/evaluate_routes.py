@@ -34,13 +34,21 @@ logger      = logging.getLogger(__name__)
 
 
 def _load_loocv_confusion_matrix():
-    """Memuat confusion matrix LOOCV K=5 resmi dari berkas evaluasi eksperimen."""
+    """Memuat confusion matrix LOOCV K=5 resmi dari berkas evaluasi eksperimen 20 responden."""
     csv_path = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "tests", "evaluation_results", "knn_final_experiment", "confusion_k5.csv"
+        "tests", "evaluation_results", "experiment_j_final20_h0_vs_h4", "confusion_matrix_h0.csv"
     )
     if not os.path.exists(csv_path):
-        return None
+        # Fallback path if any
+        legacy_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "tests", "evaluation_results", "knn_final_experiment", "confusion_k5.csv"
+        )
+        if os.path.exists(legacy_path):
+            csv_path = legacy_path
+        else:
+            return None
 
     try:
         matrix = []
@@ -71,39 +79,49 @@ def api_evaluate():
     
     Menampilkan metrik evaluasi ilmiah yang valid secara metodologis:
     1. Validasi Internal (LOOCV):
-       - Metrik: Akurasi (61.94%), Macro Precision (63.21%), Macro Recall (61.94%), Macro F1 (61.29%)
-       - 360 iterasi di mana sampel query dikeluarkan dari himpunan referensi (Bebas Data Leakage).
-       - Performa Halaman #1 (33.33%) vs Halaman #2–20 (63.45%).
-    2. Dataset Referensi Produksi:
-       - 18 mahasiswa, 20 citra/mahasiswa, total 360 citra.
-       - Digunakan sebagai reference set penuh untuk inferensi KNN produksi.
-    3. Confusion Matrix: 18x18 matrix hasil pengujian LOOCV K=5.
-    4. Per-Class LOOCV Performance: Akurasi per mahasiswa dari LOOCV.
+       - Metrik: Akurasi (61.00%), Macro Precision (60.27%), Macro Recall (61.00%), Macro F1 (60.27%)
+       - 400 iterasi di mana sampel query dikeluarkan dari himpunan referensi (Bebas Data Leakage).
+    2. Evaluasi Holdout Test Set H0 (80:20 Split):
+       - 320 sampel referensi training, 80 sampel pengujian held-out (49/80 = 61.25%).
+    3. Dataset Referensi Produksi:
+       - 20 responden, 20 citra/responden, total 400 citra.
+    4. Confusion Matrix: 20x20 matrix hasil pengujian LOOCV K=5.
+    5. Per-Class LOOCV Performance: Akurasi per mahasiswa dari LOOCV.
     """
     try:
         meta = get_latest_metadata() or {}
         loocv_meta = meta.get("loocv_benchmark", {})
 
-        # ── Metrik LOOCV Authoritative Benchmark ────────────────
+        # ── Metrik LOOCV Authoritative Benchmark (20 Responden / 400 Sampel) ──
         loocv_metrics = {
-            "accuracy":            loocv_meta.get("loocv_accuracy", 61.94),
-            "precision_macro":     loocv_meta.get("loocv_precision_macro", 63.21),
-            "recall_macro":        loocv_meta.get("loocv_recall_macro", 61.94),
-            "f1_macro":            loocv_meta.get("loocv_f1_macro", 61.29),
-            "evaluated_samples":   loocv_meta.get("loocv_n_samples", 360),
-            "correct_samples":     loocv_meta.get("loocv_correct_count", 223),
-            "wrong_samples":       loocv_meta.get("loocv_wrong_count", 137),
-            "position_1_accuracy": loocv_meta.get("position_1_accuracy", 33.33),
-            "position_2_20_acc":   loocv_meta.get("position_2_20_accuracy", 63.45),
-            "methodology":         "Leave-One-Out Cross-Validation (LOOCV, 360 Folds)",
+            "accuracy":            loocv_meta.get("loocv_accuracy", 61.00),
+            "precision_macro":     loocv_meta.get("loocv_precision_macro", 60.27),
+            "recall_macro":        loocv_meta.get("loocv_recall_macro", 61.00),
+            "f1_macro":            loocv_meta.get("loocv_f1_macro", 60.27),
+            "evaluated_samples":   loocv_meta.get("loocv_n_samples", 400),
+            "correct_samples":     loocv_meta.get("loocv_correct_count", 244),
+            "wrong_samples":       loocv_meta.get("loocv_wrong_count", 156),
+            "n_writers":           meta.get("n_respondents", 20),
+            "methodology":         "Leave-One-Out Cross-Validation (LOOCV, 400 Folds, 20 Writers)",
             "leakage_safe":        True,
         }
 
-        # ── Data Per Mahasiswa (LOOCV K=5) ──────────────────────
+        # ── Metrik Held-Out Test Set H0 (80:20 Split) ───────────
+        held_out_metrics = {
+            "n_train":             meta.get("n_train_samples", 320),
+            "n_test":              meta.get("n_test_samples", 80),
+            "test_accuracy":       meta.get("test_accuracy", 61.25),
+            "precision_macro":     meta.get("precision_macro", 62.67),
+            "recall_macro":        meta.get("recall_macro", 61.25),
+            "f1_macro":            meta.get("f1_macro", 60.67),
+            "split_ratio":         "80:20 Stratified",
+        }
+
+        # ── Data Per Mahasiswa (LOOCV K=5, 20 Responden) ────────
         per_class_loocv = [
-            {"name": "Angela Permata Rosa",        "total": 20, "correct": 11, "wrong": 9,  "accuracy": 55.0},
-            {"name": "Bramasetya Raka Purnama",    "total": 20, "correct": 10, "wrong": 10, "accuracy": 50.0},
-            {"name": "Dimas Wahyu Prasetyo",       "total": 20, "correct": 11, "wrong": 9,  "accuracy": 55.0},
+            {"name": "Angela Permata Rosa",        "total": 20, "correct": 10, "wrong": 10, "accuracy": 50.0},
+            {"name": "Bramasetya Raka Purnama",    "total": 20, "correct": 8,  "wrong": 12, "accuracy": 40.0},
+            {"name": "Dimas Wahyu Prasetyo",       "total": 20, "correct": 10, "wrong": 10, "accuracy": 50.0},
             {"name": "Fahim J Mujaddid",           "total": 20, "correct": 9,  "wrong": 11, "accuracy": 45.0},
             {"name": "Farhan Agiya Pratama",       "total": 20, "correct": 10, "wrong": 10, "accuracy": 50.0},
             {"name": "Fathurrahman Nugroho",       "total": 20, "correct": 16, "wrong": 4,  "accuracy": 80.0},
@@ -111,13 +129,15 @@ def api_evaluate():
             {"name": "Hazelando Visco",            "total": 20, "correct": 14, "wrong": 6,  "accuracy": 70.0},
             {"name": "Ibnu Gayuh Fadilah",         "total": 20, "correct": 11, "wrong": 9,  "accuracy": 55.0},
             {"name": "Ilham Rasyidan Muhammad",    "total": 20, "correct": 10, "wrong": 10, "accuracy": 50.0},
-            {"name": "Muhammad Alif Rizky Hutama", "total": 20, "correct": 17, "wrong": 3,  "accuracy": 85.0},
+            {"name": "Muhammad Alif Rizky Hutama", "total": 20, "correct": 16, "wrong": 4,  "accuracy": 80.0},
             {"name": "Muhammad Dony Saputra",      "total": 20, "correct": 12, "wrong": 8,  "accuracy": 60.0},
+            {"name": "Ngatmanto",                  "total": 20, "correct": 15, "wrong": 5,  "accuracy": 75.0},
             {"name": "Raditya Endra Mahardika",    "total": 20, "correct": 11, "wrong": 9,  "accuracy": 55.0},
             {"name": "Rakha Burhannudin Majid",    "total": 20, "correct": 18, "wrong": 2,  "accuracy": 90.0},
             {"name": "Rifqi Rengga Praseno",       "total": 20, "correct": 17, "wrong": 3,  "accuracy": 85.0},
-            {"name": "Soni Nugroho",               "total": 20, "correct": 13, "wrong": 7,  "accuracy": 65.0},
-            {"name": "Wiridan Syifa Saputra",      "total": 20, "correct": 9,  "wrong": 11, "accuracy": 45.0},
+            {"name": "Romeo Bintang Capella",      "total": 20, "correct": 14, "wrong": 6,  "accuracy": 70.0},
+            {"name": "Soni Nugroho",               "total": 20, "correct": 12, "wrong": 8,  "accuracy": 60.0},
+            {"name": "Wiridan Syifa Saputra",      "total": 20, "correct": 7,  "wrong": 13, "accuracy": 35.0},
             {"name": "Zaedani Ni'am Masykur",      "total": 20, "correct": 17, "wrong": 3,  "accuracy": 85.0},
         ]
 
@@ -126,10 +146,10 @@ def api_evaluate():
 
         # ── Dataset Referensi Info ──────────────────────────────
         ref_dataset_info = {
-            "n_respondents":        meta.get("n_respondents", 18),
-            "n_total_dataset":      meta.get("n_total_dataset", 360),
+            "n_respondents":        meta.get("n_respondents", 20),
+            "n_total_dataset":      meta.get("n_total_dataset", 400),
             "samples_per_student":  20,
-            "description":          "360 citra tulisan tangan yang digunakan sebagai basis data referensi model KNN produksi.",
+            "description":          "400 citra tulisan tangan yang digunakan sebagai basis data referensi penelitian (320 sampel referensi produksi, 80 sampel uji holdout).",
         }
 
         # ── Model Hyperparameters ───────────────────────────────
@@ -182,6 +202,7 @@ def api_evaluate():
         return jsonify({
             "success":                     True,
             "loocv_metrics":               loocv_metrics,
+            "held_out_metrics":            held_out_metrics,
             "live_verification_eval":      live_eval,
             "metrics": {
                 "test_accuracy":   loocv_metrics["accuracy"],

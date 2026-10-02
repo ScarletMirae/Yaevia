@@ -18,6 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initLucide();
   initSakura();
   initLoadingOverlay();
+  initPublicEvaluationBadge();
 });
 
 // =========================================================
@@ -66,6 +67,29 @@ function updateThemeToggleBtnUI(btn, theme) {
   btn.setAttribute('title', isDark ? 'Mode Terang (Light)' : 'Mode Gelap (Night)');
   btn.innerHTML = `<i data-lucide="${isDark ? 'sun' : 'moon'}"></i>`;
   if (window.lucide) lucide.createIcons({ nodes: [btn] });
+}
+
+// =========================================================
+// PUBLIC EVALUATION MODE BADGE
+// =========================================================
+async function initPublicEvaluationBadge() {
+  try {
+    const res = await fetch(API_BASE + "/api/health");
+    const data = await res.json();
+    if (data && data.public_evaluation_mode) {
+      window.IS_PUBLIC_EVALUATION_MODE = true;
+      const brand = document.querySelector(".navbar-brand");
+      if (brand && !document.getElementById("eval-mode-badge")) {
+        const badge = document.createElement("span");
+        badge.id = "eval-mode-badge";
+        badge.className = "badge badge-pink";
+        badge.style.cssText = "font-size:0.72rem;padding:2px 8px;margin-left:0.6rem;font-weight:700;display:inline-flex;align-items:center;gap:3px;";
+        badge.innerHTML = `<i data-lucide="shield-check" style="width:12px;height:12px;"></i> Mode Evaluasi Media`;
+        brand.parentNode.insertBefore(badge, brand.nextSibling);
+        if (window.lucide) lucide.createIcons({ nodes: [badge] });
+      }
+    }
+  } catch {}
 }
 
 // ── Loading Overlay (Navigasi Halaman) ────────────────────

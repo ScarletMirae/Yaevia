@@ -315,6 +315,8 @@ async function loadDataset() {
   }
 }
 
+let isPublicEvaluationMode = false;
+
 function renderDatasetTable(rows) {
   const tbody = document.getElementById("dataset-tbody");
   if (!rows.length) {
@@ -330,6 +332,11 @@ function renderDatasetTable(rows) {
     const processed = row.is_processed
       ? `<span class="badge badge-green"><i data-lucide="check-circle-2"></i>&nbsp;Selesai</span>`
       : `<span class="badge badge-yellow">Pending</span>`;
+    const actionCell = isPublicEvaluationMode
+      ? `<span style="color:var(--text-muted);font-size:0.72rem;font-weight:600;"><i data-lucide="lock" style="width:11px;height:11px;vertical-align:-1px;"></i> Dikunci</span>`
+      : `<button class="btn btn-danger btn-sm" onclick="deleteDatasetItem(${row.id})" title="Hapus">
+           <i data-lucide="trash-2"></i>
+         </button>`;
     return `
     <tr>
       <td style="font-weight:700;color:var(--text);">${i + 1}</td>
@@ -339,11 +346,7 @@ function renderDatasetTable(rows) {
       <td style="font-size:0.79rem;color:var(--text-muted);" title="${row.original_filename}">${fname}</td>
       <td>${processed}</td>
       <td style="font-size:0.76rem;color:var(--text-muted);">${formatDate(row.upload_timestamp)}</td>
-      <td>
-        <button class="btn btn-danger btn-sm" onclick="deleteDatasetItem(${row.id})" title="Hapus">
-          <i data-lucide="trash-2"></i>
-        </button>
-      </td>
+      <td>${actionCell}</td>
     </tr>`;
   }).join("");
   if (window.lucide) lucide.createIcons({ nodes: [tbody] });
@@ -451,10 +454,68 @@ async function loadDatasetSummary() {
   } catch {}
 }
 
+async function checkPublicMode() {
+  try {
+    const res = await fetch(API + "/api/config");
+    const d   = await res.json();
+    if (d && d.public_evaluation_mode) {
+      isPublicEvaluationMode = true;
+
+      const alertCont = document.getElementById("alert-container");
+      if (alertCont) {
+        alertCont.innerHTML = `
+          <div class="alert alert-info" style="margin-bottom:1.5rem;">
+            <i data-lucide="shield-check"></i>
+            <span><strong>Mode Evaluasi Media:</strong> Modifikasi dataset referensi dan pelatihan ulang model dinonaktifkan untuk menjaga integritas model penelitian H0 yang telah dibekukan.</span>
+          </div>`;
+        if (window.lucide) lucide.createIcons({ nodes: [alertCont] });
+      }
+
+      const uploadBtn = document.getElementById("upload-btn");
+      if (uploadBtn) {
+        uploadBtn.disabled = true;
+        uploadBtn.style.opacity = "0.6";
+        uploadBtn.style.cursor = "not-allowed";
+        uploadBtn.title = "Upload dinonaktifkan dalam Mode Evaluasi Media";
+        const btnText = document.getElementById("upload-btn-text");
+        if (btnText) btnText.textContent = "Upload Dinonaktifkan (Mode Evaluasi)";
+      }
+
+      const dropZone = document.getElementById("drop-zone");
+      if (dropZone) {
+        dropZone.style.pointerEvents = "none";
+        dropZone.style.opacity = "0.7";
+      }
+
+      const trainBtn = document.getElementById("train-btn");
+      if (trainBtn) {
+        trainBtn.disabled = true;
+        trainBtn.style.opacity = "0.6";
+        trainBtn.style.cursor = "not-allowed";
+        trainBtn.innerHTML = `<i data-lucide="lock"></i> Training Dinonaktifkan (Mode Evaluasi)`;
+        if (window.lucide) lucide.createIcons({ nodes: [trainBtn] });
+      }
+
+      const delAllBtn = document.getElementById("delete-all-btn");
+      if (delAllBtn) {
+        delAllBtn.style.display = "none";
+      }
+
+      // Re-render table if already loaded
+      if (allDataset.length) {
+        renderDatasetTable(allDataset);
+      }
+    }
+  } catch (err) {
+    console.warn("Check public evaluation mode error:", err);
+  }
+}
+
 // ─────────────────────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
+  checkPublicMode();
   loadDataset();
   loadDatasetStats();
   loadDatasetSummary();

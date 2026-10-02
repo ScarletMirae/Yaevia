@@ -86,16 +86,17 @@ def serve_frontend(filename):
 # ROUTE UTILITAS
 # ==============================================================================
 @app.route("/api/health", methods=["GET"])
-
 def health_check():
     """
     Health check endpoint untuk memeriksa status server.
     Digunakan oleh frontend untuk memastikan server berjalan.
     """
+    from config import PUBLIC_EVALUATION_MODE
     return jsonify({
         "status":  "ok",
         "message": "Sistem Verifikasi Tulisan Tangan aktif",
         "version": "2.0.0",
+        "public_evaluation_mode": PUBLIC_EVALUATION_MODE,
     }), 200
 
 
@@ -110,8 +111,10 @@ def get_config():
         KNN_N_NEIGHBORS, KNN_METRIC, KNN_WEIGHTS,
         HOG_ORIENTATIONS, HOG_PIXELS_PER_CELL, HOG_CELLS_PER_BLOCK,
         IMAGE_SIZE, TEST_SIZE, MATA_KULIAH_OPTIONS,
+        PUBLIC_EVALUATION_MODE,
     )
     return jsonify({
+        "public_evaluation_mode": PUBLIC_EVALUATION_MODE,
         "knn": {
             "n_neighbors": KNN_N_NEIGHBORS,
             "metric":      KNN_METRIC,

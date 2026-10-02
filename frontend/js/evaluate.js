@@ -132,8 +132,8 @@ function renderModelParams(info) {
       ${paramRow("Normalisasi Blok", info.hog_block_norm || "L2-Hys")}
     </div>
     <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--pink);">
-      ${paramRow("Waktu Training (360 citra)", ttm)}
-      ${paramRow("Status Model", "Dibekukan (Siap Uji Holdout)")}
+      ${paramRow("Waktu Training", ttm)}
+      ${paramRow("Status Model", "Dibekukan (H0 Produksi)")}
     </div>`;
 }
 
@@ -152,12 +152,10 @@ function renderArchitectureInfo(refInfo, loocvInfo) {
   const el = document.getElementById("split-content");
   if (!el) return;
 
-  const nResp   = refInfo ? refInfo.n_respondents : 18;
-  const nTotal  = refInfo ? refInfo.n_total_dataset : 360;
-  const nCorr   = loocvInfo ? loocvInfo.correct_samples : 223;
-  const nWrong  = loocvInfo ? loocvInfo.wrong_samples : 137;
-  const p1Acc   = loocvInfo ? loocvInfo.position_1_accuracy : 33.33;
-  const p220Acc = loocvInfo ? loocvInfo.position_2_20_acc : 63.45;
+  const nResp   = refInfo ? refInfo.n_respondents : 20;
+  const nTotal  = refInfo ? refInfo.n_total_dataset : 400;
+  const nCorr   = loocvInfo ? loocvInfo.correct_samples : 244;
+  const nWrong  = loocvInfo ? loocvInfo.wrong_samples : 156;
 
   el.innerHTML = `
     <div style="display:flex;gap:1rem;margin-bottom:1rem;">
@@ -172,22 +170,22 @@ function renderArchitectureInfo(refInfo, loocvInfo) {
     </div>
     <div style="display:flex;gap:1rem;margin-bottom:0.75rem;">
       <div style="flex:1;text-align:center;background:linear-gradient(135deg,rgba(107,63,160,0.08),rgba(107,63,160,0.03));border-radius:var(--radius-sm);padding:0.75rem;border:1px solid rgba(107,63,160,0.2);">
-        <div style="font-family:'Quicksand',sans-serif;font-size:1.4rem;font-weight:800;color:var(--purple);">${nCorr} / 360</div>
+        <div style="font-family:'Quicksand',sans-serif;font-size:1.4rem;font-weight:800;color:var(--purple);">${nCorr} / ${nTotal}</div>
         <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;">Prediksi Benar (LOOCV)</div>
       </div>
       <div style="flex:1;text-align:center;background:linear-gradient(135deg,rgba(212,163,115,0.12),rgba(212,163,115,0.04));border-radius:var(--radius-sm);padding:0.75rem;border:1px solid rgba(212,163,115,0.3);">
-        <div style="font-family:'Quicksand',sans-serif;font-size:1.4rem;font-weight:800;color:var(--rose-gold);">${nWrong} / 360</div>
+        <div style="font-family:'Quicksand',sans-serif;font-size:1.4rem;font-weight:800;color:var(--rose-gold);">${nWrong} / ${nTotal}</div>
         <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;">Prediksi Salah (LOOCV)</div>
       </div>
     </div>
     <div style="padding:0.6rem 0.8rem;background:var(--white);border-radius:var(--radius-sm);border:1px solid rgba(200,155,110,0.2);font-size:0.78rem;line-height:1.5;">
       <div style="display:flex;justify-content:space-between;margin-bottom:2px;">
-        <span style="color:var(--text-muted);">Akurasi Halaman #1 (Sampel 1):</span>
-        <strong style="color:var(--rose-gold);">${p1Acc}% (6/18)</strong>
+        <span style="color:var(--text-muted);">Metodologi Validasi:</span>
+        <strong style="color:var(--purple);">LOOCV (400 Folds, Bebas Leakage)</strong>
       </div>
       <div style="display:flex;justify-content:space-between;">
-        <span style="color:var(--text-muted);">Akurasi Halaman #2–20 (Sampel 2–20):</span>
-        <strong style="color:var(--purple);">${p220Acc}% (217/342)</strong>
+        <span style="color:var(--text-muted);">Held-Out Test Set H0:</span>
+        <strong style="color:var(--rose-gold);">61.25% (49/80 sampel)</strong>
       </div>
     </div>`;
 }

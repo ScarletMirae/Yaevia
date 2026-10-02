@@ -347,7 +347,7 @@
 
       const m   = d.data;
       const loocv = m.loocv_benchmark || {};
-      const acc = loocv.loocv_accuracy != null ? parseFloat(loocv.loocv_accuracy).toFixed(2) : (m.test_accuracy != null ? parseFloat(m.test_accuracy).toFixed(2) : '61.94');
+      const acc = loocv.loocv_accuracy != null ? parseFloat(loocv.loocv_accuracy).toFixed(2) : (m.test_accuracy != null ? parseFloat(m.test_accuracy).toFixed(2) : '61.00');
 
       el.innerHTML = `
         <div style="display:flex;flex-wrap:wrap;gap:1rem;align-items:center;">
@@ -357,10 +357,10 @@
             <strong style="font-size:1.15rem;color:var(--text);margin-left:4px;">${acc}%</strong>
           </div>
           <div style="font-size:0.87rem;color:var(--text-soft);">
-            <span style="color:var(--text-muted);">Basis Data:</span> <strong style="color:var(--text);">${m.n_total_dataset ?? 360} sampel</strong>
+            <span style="color:var(--text-muted);">Basis Data:</span> <strong style="color:var(--text);">${m.n_total_dataset ?? 400} sampel</strong>
           </div>
           <div style="font-size:0.87rem;color:var(--text-soft);">
-            <span style="color:var(--text-muted);">Kelas:</span> <strong style="color:var(--text);">${m.n_respondents ?? 18} mhs</strong>
+            <span style="color:var(--text-muted);">Kelas:</span> <strong style="color:var(--text);">${m.n_respondents ?? 20} mhs</strong>
           </div>
           <div style="font-size:0.87rem;color:var(--text-soft);">
             <span style="color:var(--text-muted);">Vektor Fitur:</span> <strong style="color:var(--text);">${(m.feature_vector_size || 34596).toLocaleString()} dim</strong>
@@ -368,7 +368,7 @@
         </div>`;
 
       const accEl = document.getElementById("stat-accuracy");
-      if (accEl) accEl.textContent = acc !== '—' ? acc + "%" : "61.94%";
+      if (accEl) accEl.textContent = acc !== '—' ? acc + "%" : "61.00%";
       if (window.lucide) lucide.createIcons({ nodes: [el] });
     } catch {
       if (el) el.innerHTML = `<span style="color:var(--text-muted);font-size:0.88rem;">Tidak dapat terhubung ke server.</span>`;
@@ -407,14 +407,14 @@
       const loocv = m.loocv_benchmark || {};
       const ppc = Array.isArray(m.hog_pixels_per_cell) ? m.hog_pixels_per_cell.join('×') : m.hog_pixels_per_cell;
       const cpb = Array.isArray(m.hog_cells_per_block) ? m.hog_cells_per_block.join('×') : m.hog_cells_per_block;
-      const acc = loocv.loocv_accuracy != null ? parseFloat(loocv.loocv_accuracy).toFixed(2) : '61.94';
-      const prec = loocv.loocv_precision_macro != null ? parseFloat(loocv.loocv_precision_macro).toFixed(2) : '63.21';
-      const rec = loocv.loocv_recall_macro != null ? parseFloat(loocv.loocv_recall_macro).toFixed(2) : '61.94';
-      const f1 = loocv.loocv_f1_macro != null ? parseFloat(loocv.loocv_f1_macro).toFixed(2) : '61.29';
+      const acc = loocv.loocv_accuracy != null ? parseFloat(loocv.loocv_accuracy).toFixed(2) : '61.00';
+      const prec = loocv.loocv_precision_macro != null ? parseFloat(loocv.loocv_precision_macro).toFixed(2) : '60.27';
+      const rec = loocv.loocv_recall_macro != null ? parseFloat(loocv.loocv_recall_macro).toFixed(2) : '61.00';
+      const f1 = loocv.loocv_f1_macro != null ? parseFloat(loocv.loocv_f1_macro).toFixed(2) : '60.27';
 
       el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:0.65rem;">
-        ${infoChip('Responden',       m.n_respondents || 18,                                  'users')}
-        ${infoChip('Basis Data',      (m.n_total_dataset || 360) + ' citra',                  'database')}
+        ${infoChip('Responden',       m.n_respondents || 20,                                  'users')}
+        ${infoChip('Basis Data',      (m.n_total_dataset || 400) + ' citra',                  'database')}
         ${infoChip('LOOCV Accuracy',  acc + '%',                                              'target')}
         ${infoChip('Macro Precision', prec + '%',                                             'crosshair')}
         ${infoChip('Macro Recall',    rec + '%',                                              'zap')}
@@ -429,7 +429,7 @@
       </div>
       <p style="font-size:0.73rem;color:var(--text-muted);margin-top:0.75rem;display:flex;align-items:center;gap:0.3rem;">
         <i data-lucide="shield-check" style="width:11px;height:11px;color:var(--purple);"></i>
-        Model Produksi Dibekukan &mdash; Validasi LOOCV Bebas Kebocoran Data (360 Folds)
+        Model Produksi Dibekukan &mdash; Validasi LOOCV Bebas Kebocoran Data (400 Folds)
       </p>`;
       if (window.lucide) lucide.createIcons({ nodes: [el] });
     } catch {

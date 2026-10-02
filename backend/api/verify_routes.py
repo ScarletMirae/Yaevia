@@ -17,7 +17,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import DATASET_RAW_DIR, ALLOWED_EXTENSIONS
+from config import DATASET_RAW_DIR, ALLOWED_EXTENSIONS, PUBLIC_EVALUATION_MODE
 from preprocessing.image_processor import preprocess_image
 from features.hog_extractor import extract_hog_features
 from model.classifier import verify_image
@@ -246,6 +246,13 @@ def api_verify_detail(verify_id):
 @verify_bp.route("/api/verify/<int:verify_id>", methods=["DELETE"])
 def api_verify_delete(verify_id):
     """DELETE /api/verify/<id> — hapus satu record verifikasi."""
+    if PUBLIC_EVALUATION_MODE:
+        return jsonify({
+            "success": False,
+            "error": "PUBLIC_EVALUATION_MODE_ACTIVE",
+            "message": "Penghapusan riwayat verifikasi dinonaktifkan dalam Mode Evaluasi Media / Public Demo."
+        }), 403
+
     try:
         conn = get_connection()
         row  = conn.execute(
